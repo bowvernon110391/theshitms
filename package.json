@@ -1,0 +1,27 @@
+{
+  "name": "sims-house-3d",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "A Sims-style 3D house viewer built with Three.js - cutaway walls, furnished rooms and a full day/night cycle.",
+  "scripts": {
+    "dev": "vite",
+    "bake": "npm run bake:static && npm run bake:dynamic",
+    "bake:static": "npm run bake:export && npm run bake:blender -- --samples=128 --atlas=1024 --margin=4 && npm run bake:import",
+    "bake:export": "node tools/export-scene.mjs",
+    "bake:blender": "node tools/run-blender.mjs",
+    "bake:import": "node tools/import-lightmap.mjs",
+    "bake:dynamic": "node tools/bake-probes.mjs",
+    "build": "npm run bake && vite build",
+    "build:fast": "vite build",
+    "serve": "vite preview",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "three": "^0.186.1",
+    "three-mesh-bvh": "^0.9.15"
+  },
+  "devDependencies": {
+    "vite": "^8.3.2"
+  }
+}

@@ -1,0 +1,131 @@
+{
+  "format": "jjjs-lights",
+  "version": 1,
+  "upAxis": "Y",
+  "lights": [
+    {
+      "name": "light:living",
+      "color": [
+        1,
+        0.6938717612856897,
+        0.3915724777393922
+      ],
+      "position": [
+        2,
+        2.2,
+        2.6
+      ],
+      "intensity": 27.2,
+      "distance": 12,
+      "decay": 2
+    },
+    {
+      "name": "light:dining",
+      "color": [
+        1,
+        0.623960391667596,
+        0.3231432091022285
+      ],
+      "position": [
+        6,
+        2.2,
+        2
+      ],
+      "intensity": 23.8,
+      "distance": 12,
+      "decay": 2
+    },
+    {
+      "name": "light:kitchen",
+      "color": [
+        1,
+        0.8713671191959567,
+        0.6307571363387763
+      ],
+      "position": [
+        10,
+        2.2,
+        2
+      ],
+      "intensity": 30.599999999999998,
+      "distance": 12,
+      "decay": 2
+    },
+    {
+      "name": "light:hall",
+      "color": [
+        1,
+        0.7681511472425809,
+        0.508881320845802
+      ],
+      "position": [
+        6,
+        2.2,
+        5
+      ],
+      "intensity": 20.4,
+      "distance": 12,
+      "decay": 2
+    },
+    {
+      "name": "light:bedroom",
+      "color": [
+        1,
+        0.5840784178830671,
+        0.36625259558833256
+      ],
+      "position": [
+        2,
+        2.2,
+        8
+      ],
+      "intensity": 17,
+      "distance": 12,
+      "decay": 2
+    },
+    {
+      "name": "light:bath",
+      "color": [
+        0.7156935005005721,
+        0.8631572134510892,
+        1
+      ],
+      "position": [
+        6,
+        2.2,
+        8.4
+      ],
+      "intensity": 20.4,
+      "distance": 12,
+      "decay": 2
+    },
+    {
+      "name": "light:office",
+      "color": [
+        1,
+        0.7454042095350284,
+        0.43415363616478553
+      ],
+      "position": [
+        10,
+        2.2,
+        8
+      ],
+      "intensity": 17,
+      "distance": 12,
+      "decay": 2
+    }
+  ],
+  "bounds": {
+    "min": [
+      -0.5500001907348633,
+      0.07999999821186066,
+      -0.6054515242576599
+    ],
+    "max": [
+      12.550000190734863,
+      5.769999980926514,
+      10.550000190734863
+    ]
+  }
+}

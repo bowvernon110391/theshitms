@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sims-Style House · Three.js</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <div id="app"></div>
+    <div id="labels"></div>
+
+  <!-- ── The lightmap atlas itself ──────────────────────────── -->
+  <div id="atlasView" hidden>
+    <header>
+      <b>Lightmap atlas</b>
+      <span id="atlasMeta">—</span>
+      <button id="atlasClose" title="Close">×</button>
+    </header>
+    <canvas id="atlasCanvas"></canvas>
+  </div>
+    <div id="loader">
+      <div class="loader-mark"></div>
+      <div class="loader-text">Building the house…</div>
+    </div>
+
+    <!-- ── Title ───────────────────────────────────────────────── -->
+    <header id="titlebar">
+      <h1>Willow Creek Cottage</h1>
+      <p>Move in, look around. Walls drop away so you can see inside.</p>
+    </header>
+
+    <!-- ── Control panel ───────────────────────────────────────── -->
+    <aside id="panel">
+      <button class="panel-toggle" id="panelToggle" title="Hide panel (H)">☰</button>
+
+      <div class="panel-body">
+        <section>
+          <h2>View</h2>
+          <div class="seg" id="viewSeg">
+            <button data-view="cutaway" class="active">Cutaway</button>
+            <button data-view="full">Walls Up</button>
+            <button data-view="plan">Floor Plan</button>
+          </div>
+        </section>
+
+        <section>
+          <h2>Show</h2>
+          <label class="row"><span>Roof</span><input type="checkbox" id="optRoof" /></label>
+          <label class="row"><span>Furniture</span><input type="checkbox" id="optFurniture" checked /></label>
+          <label class="row"><span>Ceiling lights</span><input type="checkbox" id="optLamps" checked /></label>
+          <label class="row"><span>Sims</span><input type="checkbox" id="optSims" checked /></label>
+          <label class="row"><span>Yard</span><input type="checkbox" id="optYard" checked /></label>
+        </section>
+
+        <section>
+          <h2>Time of day</h2>
+          <div class="time-readout">
+            <span id="clock">12:00</span>
+            <span id="phase" class="phase">Noon</span>
+          </div>
+          <input type="range" id="timeSlider" min="0" max="24" step="0.05" value="12" />
+          <div class="seg small" id="presetSeg">
+            <button data-hour="6.5">Dawn</button>
+            <button data-hour="12" class="active">Noon</button>
+            <button data-hour="18.7">Dusk</button>
+            <button data-hour="23">Night</button>
+          </div>
+          <label class="row"><span>Auto cycle</span><input type="checkbox" id="optAuto" /></label>
+        </section>
+
+        <section>
+          <h2>Camera</h2>
+          <label class="row"><span>Auto orbit</span><input type="checkbox" id="optSpin" /></label>
+          <button class="wide" id="btnReset">Reset view</button>
+        </section>
+
+        <section>
+          <h2>Rooms</h2>
+          <div class="rooms" id="roomList"></div>
+        </section>
+
+        <section id="debugSection">
+          <h2>Debug · Lightmap</h2>
+
+          <!-- 1. The result: baked light as it lands on surfaces. -->
+          <label class="row"><span>1 · On surfaces</span><input type="checkbox" id="dbgOverlay" /></label>
+          <div class="field">
+            <label for="dbgOverlayGain">Exposure <span id="dbgOverlayGainLabel">0.35</span></label>
+            <input type="range" id="dbgOverlayGain" min="2" max="200" step="2" value="35" />
+          </div>
+
+          <!-- 2. The raw storage: the 3D probe grid. -->
+          <details id="dbgAdvanced">
+            <summary>2 · Probe grid (3D storage)</summary>
+            <div class="details-body">
+              <p class="note">
+                The bake is stored as a grid of SH probes. This shows that raw
+                data. Useful for spotting a bad probe; the surfaces show what
+                the interpolation actually produces.
+              </p>
+              <label class="row"><span>Draw probes</span><input type="checkbox" id="dbgProbes" /></label>
+              <label class="row sub"><span>X-ray</span><input type="checkbox" id="dbgXray" /></label>
+              <label class="row sub"><span>Only repaired</span><input type="checkbox" id="dbgBuried" /></label>
+
+              <div class="field">
+                <label for="dbgDir">Evaluate for</label>
+                <select id="dbgDir">
+                  <option value="py">Up (+Y)</option>
+                  <option value="ny">Down (−Y)</option>
+                  <option value="px">Right (+X)</option>
+                  <option value="nx">Left (−X)</option>
+                  <option value="pz">Back (+Z)</option>
+                  <option value="nz">Front (−Z)</option>
+                </select>
+              </div>
+
+              <div class="field">
+                <label for="dbgBands">SH bands</label>
+                <select id="dbgBands">
+                  <option value="l2">L0 + L1 + L2 (full)</option>
+                  <option value="l1">L0 + L1 (directional)</option>
+                  <option value="l0">L0 only (ambient)</option>
+                </select>
+              </div>
+
+              <div class="field">
+                <label for="dbgSlice">Y slice <span id="dbgSliceLabel">all</span></label>
+                <input type="range" id="dbgSlice" min="0" max="7" step="1" value="7" />
+              </div>
+
+              <div class="field">
+                <label for="dbgSize">Probe size</label>
+                <input type="range" id="dbgSize" min="2" max="30" step="1" value="8" />
+              </div>
+
+              <div class="field">
+                <label for="dbgGain">Exposure <span id="dbgGainLabel">0.08</span></label>
+                <input type="range" id="dbgGain" min="1" max="200" step="1" value="8" />
+              </div>
+            </div>
+          </details>
+
+          <!-- 3. The real atlas texture. -->
+          <details id="dbgAtlasBox">
+            <summary>3 · Atlas texture</summary>
+            <div class="details-body">
+              <p class="note">
+                The actual lightmap texture the GPU samples — every chart the
+                unwrap produced, packed into one image. Open it to see the
+                unwrap: wasted space, chart shapes, and where the detail went.
+              </p>
+              <div class="field">
+                <label for="atlasChannel">Channel</label>
+                <select id="atlasChannel">
+                  <option value="rgb">RGB</option>
+                  <option value="r">R only</option>
+                  <option value="g">G only</option>
+                  <option value="b">B only</option>
+                </select>
+              </div>
+              <label class="row"><span>Chart outlines</span><input type="checkbox" id="atlasCharts" /></label>
+              <label class="row"><span>Pixel grid</span><input type="checkbox" id="atlasGrid" checked /></label>
+              <div class="field">
+                <label for="atlasGain">Exposure <span id="atlasGainLabel">0.30</span></label>
+                <input type="range" id="atlasGain" min="1" max="200" step="1" value="30" />
+              </div>
+            </div>
+          </details>
+
+          <p class="readout" id="dbgStats">—</p>
+          <p class="readout dim" id="dbgBands-out">—</p>
+        </section>
+      </div>
+    </aside>
+
+    <!-- ── Hint bar ────────────────────────────────────────────── -->
+    <footer id="hintbar">
+      <span><kbd>LMB</kbd> orbit</span>
+      <span><kbd>RMB</kbd> pan</span>
+      <span><kbd>Wheel</kbd> zoom</span>
+      <span class="sep"></span>
+      <span><kbd>C</kbd> cutaway</span>
+      <span><kbd>R</kbd> roof</span>
+      <span><kbd>P</kbd> plan</span>
+      <span><kbd>D</kbd> debug</span>
+      <span><kbd>H</kbd> panel</span>
+      <span><kbd>Space</kbd> time</span>
+    </footer>
+  </body>
+  <script type="module" src="/src/main.js"></script>
+</html>
