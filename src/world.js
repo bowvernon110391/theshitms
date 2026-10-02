@@ -22,7 +22,11 @@ export function buildWorld({ sims = true, labels = true } = {}) {
 
   // Furniture lives in the house's local space so it inherits the foundation
   // lift, but it is static — merge it down to a handful of draw calls.
-  const furniture = mergeByMaterial(buildFurnishings());
+  //
+  // The free-standing lamps come back with it as light specs, because they are
+  // built there and their emitter heights are read off the fixtures themselves.
+  const furnishings = buildFurnishings();
+  const furniture = mergeByMaterial(furnishings.group);
   house.group.add(furniture);
 
   const yard = buildYard();
@@ -58,8 +62,16 @@ export function buildWorld({ sims = true, labels = true } = {}) {
     /** Just the interior — the shell and its furniture, but not the yard. */
     lightmapRoots: [house.group],
 
-    /** Plain data, not scene objects: the bake turns these into irradiance. */
-    interiorLightSpecs: house.lightSpecs,
+    /**
+     * Every baked interior light, ceiling and free-standing alike.
+     *
+     * One list rather than two, so nothing downstream has to remember that the
+     * lamps in the furnishings also emit — the bake, the probe bake and the
+     * export all just see "the lights".
+     *
+     * Plain data, not scene objects: the bake turns these into irradiance.
+     */
+    interiorLightSpecs: [...house.lightSpecs, ...furnishings.lightSpecs],
     exteriorLightSpecs: yard.lights,
   };
 }

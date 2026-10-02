@@ -129,11 +129,44 @@ export const WINDOW_GLOW_MATERIAL = new THREE.MeshBasicMaterial({
 });
 
 /**
- * Materials that get an emissive kick at nightfall. `LAMP_MATERIAL` and
- * `WINDOW_GLOW_MATERIAL` are shared singletons, so a single write lights
- * every lamp in the house.
+ * Materials that get an emissive kick at nightfall.
+ *
+ * `WINDOW_GLOW_MATERIAL` is a shared singleton, so a single write drives every
+ * window in the house. The lamp shade materials are not: each fixture gets its
+ * own, tinted to match the light it casts (see `makeLampMaterial`), so they are
+ * registered here as they are created.
  */
 export const EMISSIVE_TARGETS = [
   { material: LAMP_MATERIAL, key: 'emissiveIntensity', max: 1.6 },
   { material: WINDOW_GLOW_MATERIAL, key: 'opacity', max: 0.55 },
 ];
+
+/**
+ * A lamp-shade material tuned to the colour of the light behind it.
+ *
+ * A shared shade material would be wrong as soon as the lights stopped being
+ * uniformly warm: a lamp casting green into the room while its own shade glows
+ * orange reads as two unrelated things. The shade has to be tinted to match.
+ *
+ * The albedo is lightened rather than set to the light's colour outright. A
+ * shade's visible brightness is `emissive x emissiveIntensity` plus whatever
+ * light lands *on* it, and a saturated albedo would swallow that second term,
+ * leaving a lamp that looks like a flat coloured sprite up close.
+ *
+ * Registering the clone in `EMISSIVE_TARGETS` is what lets it fade up at dusk
+ * with everything else, and is easy to forget: a clone of a tracked material is
+ * not itself tracked, and the symptom would be a single lamp that never comes on.
+ *
+ * @param {THREE.Color|null} color  the light's colour, or null for the default
+ * @returns {THREE.MeshStandardMaterial}
+ */
+export function makeLampMaterial(color) {
+  if (!color) return LAMP_MATERIAL;
+
+  const material = LAMP_MATERIAL.clone();
+  material.emissive.copy(color);
+  material.color.copy(color).lerp(new THREE.Color(0xffffff), 0.62);
+
+  EMISSIVE_TARGETS.push({ material, key: 'emissiveIntensity', max: 1.6 });
+  return material;
+}

@@ -71,12 +71,51 @@ Floor-plan mode doesn't hide walls — it slices them with a real clipping plane
 (`renderer.localClippingEnabled`), which keeps the wall stubs and door reveals
 visible from above.
 
-### One light per room, not one per lamp
+### Sixteen lights, and where they came from
 
-Each room contributes a single light at its centroid rather than one per
-fixture: a light is an *area of influence*, and every extra one costs the bake
-another set of shadow rays. The ceiling lamps are all real meshes sharing one
-emissive material, so a single write lights the whole house at dusk.
+Interior lighting is **10 ceiling lamps plus 6 free-standing ones** — a pendant
+over the dining table, a floor lamp each in the living room and study, two
+bedside lamps, and a table lamp in the hallway. Baked, all of them.
+
+Two things about how they are declared:
+
+**One light per fixture, with the room's budget split between them.** An earlier
+version gave each *room* a single light at the centroid, on the grounds that a
+light is an *area of influence* and each extra one costs the bake another set of
+shadow rays. That reasoning is sound but it was applied too bluntly: a centroid
+light in a 12 m hallway only lights the middle of it. The hallway's three lamps
+now each emit a third of what the one light did, so the room's total output is
+unchanged while its falloff finally has a shape.
+
+**The lamps are data, not placements.** Each free-standing lamp has to exist
+twice — as a fixture you can see and as a light the bake can read — so they live
+in an `ACCENT_LAMPS` table in `config.js` and both halves are derived from it.
+The fixture records where its own emitter sits (`userData.lightOffsetY`, set by
+the same function that draws the bulb) and the light spec is read back from
+that. Two hand-maintained copies of one coordinate would eventually disagree,
+and the symptom — a light twenty centimetres left of the lamp it belongs to — is
+tedious to trace.
+
+### Light colours are randomly generated, on purpose
+
+Ceiling lights are drawn from a warm band (hue 34–56°, low saturation): amber
+through to near-white, never blue. The free-standing lamps get the whole wheel at
+high saturation. The ranges live in `LIGHT_PALETTE`; `LIGHT_SEED` in `config.js`
+re-rolls the entire house.
+
+That they are **seeded** rather than `Math.random()` matters more than it looks.
+Light colours are inputs to a bake, and a bake is expensive and meant to be
+comparable — with real randomness, every re-bake would differ for no visible
+reason and you could never tell a colour change from a sampling change. The
+colours look arbitrary and reproduce exactly. Change `LIGHT_SEED` to get a
+different house.
+
+Each lamp's shade material is tinted to match its light (`makeLampMaterial`),
+because a lamp casting green while its own shade glows orange reads as two
+unrelated objects. Cloning a material is how that is done, and a clone of a
+tracked material is **not itself tracked** — so the clones register themselves
+in `EMISSIVE_TARGETS`. Forgetting that produces exactly one lamp that never
+comes on at dusk, which is a slow thing to notice.
 
 ### The lighting: two baked representations
 
@@ -87,8 +126,8 @@ things:
 | | Static geometry | Sims / dynamic objects |
 |---|---|---|
 | Storage | 2048² PNG atlas, 8-bit sRGB | SH L2 probe volume |
-| Delivery | `uv1` + `material.lightMap` | per-frame uniform + shader patch |
-| Resolution | **26.3 texels/m (~4 cm)** | 0.5 m probe grid |
+| Delivery | per-texel, via `uv1` + `material.lightMap` | per-vertex, via injected SH evaluation |
+| Resolution | **17.6 texels/m (~6 cm)** at `--atlas=1024` | 0.5 m probe grid, resolved per vertex |
 | Why | Surfaces don't move, so a texture can carry per-texel detail | A texture is indexed by UVs, and a character's UVs travel with it — a probe grid is indexed by *world position*, which is the right question to ask about a body that moves |
 
 Both feed the same term in three.js's pipeline, so they composite with the sun
@@ -98,6 +137,33 @@ under identical maths:
 irradiance += lightMapTexel.rgb * lightMapIntensity;   // atlas  (built in)
 irradiance += vBakedLight * uBakedIntensity;           // probes (injected)
 ```
+
+### The probe light is evaluated per vertex, not per object
+
+`vBakedLight` looks like a plain interpolated varying in that snippet, and for a
+long time it was nothing of the sort: the CPU sampled the volume **once** at
+chest height and wrote the result into a uniform, so every vertex of a sim got
+the same value and the varying had nothing to interpolate. Combined with a
+normal hardcoded to `+Y`, that made the sims read as flat cut-outs — they were
+effectively lit by one light, from one direction, uniformly.
+
+The measured cost of the hardcoded normal is the interesting part. Evaluating an
+L2 basis at `+Y` zeroes $b_2, b_3, b_4, b_5, b_7$ — five of the nine basis
+functions, 15 of the 27 floats stored per probe. Worse, `+Y` is often the *dim*
+direction: sampled across the house it is between 1× and **26×** darker than the
+brightest axis at the same point, so in the worst spots the sims were receiving
+about 4% of the light already sitting in the buffer.
+
+So the interpolation stayed on the CPU — it is 8 probes × 27 floats, once per
+object per frame — but the evaluation moved into the vertex shader, where the
+real normal is free. Two coefficient sets are sampled, at the object's base and
+above its head, and mixed by each vertex's world height. That is what gives a
+body a vertical gradient as well as directional shading.
+
+One caveat worth knowing: the shader reconstructs a world normal as
+`mat3( modelMatrix ) * objectNormal`, which is only valid while the model matrix
+carries no non-uniform scale. Every sim part bakes its scaling into the geometry
+(`ellipsoid` in `sims.js`) specifically to keep that true.
 
 Sun, sky, fog and the outdoor lamp post stay **real-time**. That split is what
 makes the whole thing affordable: because the bake only covers lamps that are
@@ -229,23 +295,34 @@ harder — it just gets blurrier.
 always present. What remains here is 0.0205 against a peak of ~22 — about 0.09%
 of peak, or ~4% of a mid-tone — and the rendered frame measures ~0.15%
 high-frequency energy. Halving it again would need 256 samples, roughly four
-times the 9-minute bake.
+times the bake.
 
-### Mipmaps for a minified lightmap
+The noise figures above were measured on a 7-light bake. More lights means more
+shadow rays per sample, so the absolute numbers move with the lighting rig — the
+*relationship* is the part that generalises: samples buy cleanliness and detail
+together, and denoising buys neither.
 
-At 26 texels/m the atlas is *minified* on screen — a 895px viewport across ~15 m
-is ~60 px/m — and `LinearFilter` minification samples a single texel rather than
-averaging, so residual bake noise aliases into shimmer.
+### Mipmaps for a minified lightmap — **currently regressed**
 
-Letting three.js generate mipmaps is not the answer: coarse levels average
-across the bake margin and bleed one surface's light onto its neighbour. So the
-chain is built by hand in `createAtlasTexture`, box-filtered, and **stopped at
-the deepest level whose footprint still fits inside the margin** (level 4 for a
-16px margin). Trilinear then blends between levels that are safe.
+At 17.6 texels/m the atlas is *minified* on screen — a 895px viewport across
+~15 m is ~60 px/m — so minification samples several texels per pixel and residual
+bake noise aliases into shimmer.
 
-An attempt to measure the improvement by swapping `minFilter` at runtime gave an
+The old build handled this with a hand-built, box-filtered mip chain that
+**stopped at the deepest level whose footprint still fits inside the margin**
+(level 4 for a 16px margin), because three's automatic chain averages across the
+margin and bleeds one island's light onto its neighbour. That code lived in
+`createAtlasTexture`, which the move to a plain PNG deleted — `loadTexture` sets
+`LinearMipmapLinearFilter` and lets three generate the chain.
+
+So the margin-bleed problem is currently **back**, and it is worse at margin 4
+than it was at 16: the safe depth is now `log2(margin)`, i.e. 2 levels. Worth
+fixing by capping `texture.mipmaps` / limiting `minFilter`, but it is not fixed
+yet and the section above should not be read as if it were.
+
+The earlier attempt to measure this by swapping `minFilter` at runtime gave an
 identical result, which means the change did not re-upload — so that was not a
-valid A/B, and the benefit here is reasoned rather than demonstrated.
+valid A/B, and even the original benefit was reasoned rather than demonstrated.
 
 ### Three defects the measurements turned up
 
@@ -296,7 +373,7 @@ src/
   furniture.js    ~30 furniture builders (sofa, bed, counters, bathtub…)
   furnish.js      hand-placed room layouts
   props.js        yard: fence, path, deck, pool, planting, car
-  sims.js         two wanders-around characters with plumbobs
+  sims.js         two low-poly characters (ellipsoids + capsules) with plumbobs
   lightmapfile.js atlas format, half-float, capped mip chain, material application
   lightprobe.js   SH L2 probe encoding, sampling and file format
   bakedlight.js   probe-volume lighting for dynamic objects only

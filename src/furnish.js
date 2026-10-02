@@ -1,5 +1,7 @@
 import * as THREE from 'three';
 import { MAT } from './materials.js';
+import { ACCENT_LAMPS, LIGHT_PALETTE, LIGHT_SEED } from './config.js';
+import { lightColor } from './lightcolors.js';
 import * as F from './furniture.js';
 
 /**
@@ -33,7 +35,6 @@ function livingRoom() {
 
   // Shelving under the front window, kept below the 0.95 sill.
   g.add(at(F.makeBookshelf({ w: 1.1, h: 1.35 }), 0.72, 0.26, 0));
-  g.add(at(F.makeFloorLamp({ h: 1.55 }), 3.5, 0.5, 0));
   g.add(at(F.makePlant({ h: 1.0 }), 0.55, 3.5, 0));
 
   // Canvas on the solid part of the left wall.
@@ -55,7 +56,8 @@ function diningRoom() {
     g.add(at(F.makeDiningChair(), x, 3.12, Math.PI));
   }
 
-  g.add(at(F.makePendantLamp({ y: 1.95, drop: 0.68, radius: 0.3 }), 6.0, 2.3, 0));
+  // The pendant is placed by `accentLamps()` rather than here, so that the
+  // fixture and the light it casts cannot end up at different coordinates.
   g.add(at(F.makeSideboard({ w: 1.3 }), 4.9, 3.74, Math.PI));
   g.add(at(F.makeWallArt({ w: 1.0, h: 0.5, y: 1.65, art: 1 }), 4.9, 3.88, Math.PI));
   g.add(at(F.makePlant({ h: 1.15 }), 7.5, 0.55, 0));
@@ -112,7 +114,6 @@ function bedroom() {
 
   g.add(at(F.makeNightstand(), 3.65, 7.2, 0));
   g.add(at(F.makeNightstand(), 3.65, 9.6, 0));
-  g.add(at(F.makeTableLamp({ h: 0.36 }), 3.65, 9.6, 0));
 
   g.add(at(F.makeRug({ w: 1.9, d: 2.4, color: MAT.rugSoft }), 1.15, 8.4, 0));
 
@@ -156,16 +157,70 @@ function study() {
 
   g.add(at(F.makeBookshelf({ w: 1.1, h: 1.9 }), 11.35, 9.68, Math.PI));
   g.add(at(F.makeArmchair({ fabric: MAT.sofaCushion }), 11.3, 6.5, 0));
-  g.add(at(F.makeFloorLamp({ h: 1.5 }), 8.5, 6.6, 0));
   g.add(at(F.makePlant({ h: 1.1 }), 9.0, 9.5, 0));
   g.add(at(F.makeWallArt({ w: 0.8, h: 0.6, y: 1.65, art: 2 }), 8.14, 7.0, HALF));
 
   return g;
 }
 
+/**
+ * The free-standing lamps, built from the table in `config.js`.
+ *
+ * Each entry produces both the fixture and the light it casts. The light's
+ * height comes from the fixture itself — `userData.lightOffsetY`, set by the
+ * builder that draws the bulb — so the two cannot drift: there is exactly one
+ * place that decides where a given lamp's light is, and it is the same place
+ * that draws the thing the light is supposed to be coming out of.
+ *
+ * Colours come from the seeded generator, so they look arbitrary but re-bake
+ * identically.
+ *
+ * @returns {{group: THREE.Group, lightSpecs: Array<object>}}
+ */
+function accentLamps() {
+  const group = new THREE.Group();
+  group.name = 'accentLamps';
+
+  /** @type {Array<object>} Same shape the ceiling lights use, so the bake sees one list. */
+  const lightSpecs = [];
+
+  for (const spec of ACCENT_LAMPS) {
+    const name = `light:${spec.id}`;
+    const color = lightColor(name, LIGHT_PALETTE.accent, LIGHT_SEED);
+
+    const piece = F.makeFixture({ ...spec, color });
+    const base = spec.base ?? 0;
+    piece.position.set(spec.x, base, spec.z);
+    piece.rotation.y = spec.ry ?? 0;
+    group.add(piece);
+
+    lightSpecs.push({
+      name,
+      color,
+      position: [spec.x, base + (piece.userData.lightOffsetY ?? 0), spec.z],
+      intensity: spec.intensity,
+      distance: spec.distance ?? 10,
+      decay: 2,
+    });
+  }
+
+  return { group, lightSpecs };
+}
+
+/**
+ * Furnishings, plus the light specs for the free-standing lamps among them.
+ *
+ * The lamps are returned alongside the geometry rather than added to the
+ * house's own light list, because they are built here — and the whole point of
+ * returning them is that the caller never has to know their coordinates.
+ */
 export function buildFurnishings() {
   const root = new THREE.Group();
   root.name = 'furniture';
   root.add(livingRoom(), diningRoom(), kitchen(), hallway(), bedroom(), bathroom(), study());
-  return root;
+
+  const lamps = accentLamps();
+  root.add(lamps.group);
+
+  return { group: root, lightSpecs: lamps.lightSpecs };
 }

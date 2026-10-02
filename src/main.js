@@ -430,9 +430,8 @@ function animate(now) {
 
   if (simsGroup.visible && probeVolume) {
     for (const sim of world.simList) {
-      for (const uniform of sim.lightUniforms) {
-        refreshDynamicLight(probeVolume, sim.root.position, uniform);
-      }
+      // One uniform set per material, all fed the same two SH samples.
+      refreshDynamicLight(probeVolume, sim.root.position, sim.lightUniforms);
       sim.update(dt, elapsed);
     }
   }

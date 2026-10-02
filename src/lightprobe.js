@@ -159,23 +159,42 @@ export class ProbeVolume {
   }
 
   /**
+   * Interpolate the 27 SH coefficients at a position, *without* evaluating them.
+   *
+   * Separate from `sample` because the two callers want different things. A
+   * single point wants an evaluated colour back. A moving object wants the raw
+   * coefficients, because its shader can then evaluate them per vertex with
+   * each vertex's real normal — which is what gives a character form instead of
+   * one flat colour.
+   *
+   * Both paths interpolate first and evaluate once, so they agree.
+   *
+   * @param {THREE.Vector3} pos
+   * @param {Float32Array} out  27 floats, interleaved `[r0,g0,b0, r1,g1,b1, ...]`
+   * @returns {boolean} false when the position lies outside the volume
+   */
+  sampleCoeffs(pos, out) {
+    out.fill(0);
+
+    const n = this.gather(pos, _idxBuf, _wtBuf);
+    if (n === 0) return false;
+
+    for (let i = 0; i < n; i++) {
+      const base = _idxBuf[i] * 27;
+      const w = _wtBuf[i];
+      for (let k = 0; k < 27; k++) out[k] += this.coeffs[base + k] * w;
+    }
+    return true;
+  }
+
+  /**
    * Sample irradiance at a world position for a surface normal.
    * Coefficients are interpolated first and evaluated once, which is both
    * cheaper and smoother than evaluating per-probe and blending.
    */
   sample(pos, normal, out = this._out) {
-    const n = this.gather(pos, _idxBuf, _wtBuf);
-    if (n === 0) return out.setRGB(0, 0, 0);
-
-    const acc = _accBuf;
-    acc.fill(0);
-    for (let i = 0; i < n; i++) {
-      const base = _idxBuf[i] * 27;
-      const w = _wtBuf[i];
-      for (let k = 0; k < 27; k++) acc[k] += this.coeffs[base + k] * w;
-    }
-
-    return shEvaluate(acc, normal.x, normal.y, normal.z, out);
+    if (!this.sampleCoeffs(pos, _accBuf)) return out.setRGB(0, 0, 0);
+    return shEvaluate(_accBuf, normal.x, normal.y, normal.z, out);
   }
 }
 

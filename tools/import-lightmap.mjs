@@ -47,9 +47,12 @@ import { buildCoverageMask, denoiseBilateral } from './denoise-atlas.mjs';
  * sims — lit from the probe volume, using three.js maths — sit consistently
  * beside atlas-lit surfaces.
  *
- * Values are normalised by the atlas peak, which is stored in the JSON and
- * multiplied back through `lightMapIntensity`. That way the texture always spans
- * its full 8-bit range whatever the scene's absolute brightness.
+ * Values are normalised by the largest single channel in the atlas, which is
+ * stored in the JSON and multiplied back through `lightMapIntensity`. That way
+ * the texture always spans its full 8-bit range whatever the scene's absolute
+ * brightness — and dividing by the largest *channel* rather than the largest
+ * *luminance* is what keeps saturated lights from clipping. See the note on the
+ * scan that computes it.
  */
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -170,9 +173,30 @@ if (DENOISE_RADIUS > 0) {
   denoiseStats = { ...result.stats, covered };
 }
 
-/* ── Find the peak, to normalise against ──────────────────────── */
+/* ── Find the range, to normalise against ─────────────────────── */
 
-let peak = 0;
+/**
+ * Two different peaks, and the difference between them matters.
+ *
+ * `peakChannel` is the largest single channel value anywhere in the atlas, and
+ * it is what the encoding divides by. It has to be: the 8-bit range is per
+ * channel, so anything that divides by less than the largest channel writes a
+ * value above 1.0 and clamps it flat.
+ *
+ * This used to divide by `peakLuminance` — `0.2126R + 0.7152G + 0.0722B` —
+ * which is fine only while every light is roughly the same warm colour, because
+ * then the largest channel and the luminance peak are close together. The
+ * moment a saturated light is added it breaks badly: a pure blue has luminance
+ * 0.0722x its blue value, so its blue channel can sit far above a luminance
+ * peak set by a warm light elsewhere, and the most saturated thing in the scene
+ * is exactly what clips. The symptom would have been flat, blown-out colour
+ * around the coloured lamps while everything else looked correct.
+ *
+ * `peakLuminance` is still tracked, because it is the number that means
+ * something about brightness and the exposure-ish reporting below uses it.
+ */
+let peakChannel = 0;
+let peakLuminance = 0;
 let litTexels = 0;
 let nanCount = 0;
 
@@ -186,12 +210,16 @@ for (let i = 0; i < atlasSize * atlasSize; i++) {
     continue;
   }
 
+  if (r > peakChannel) peakChannel = r;
+  if (g > peakChannel) peakChannel = g;
+  if (b > peakChannel) peakChannel = b;
+
   const lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
-  if (lum > peak) peak = lum;
+  if (lum > peakLuminance) peakLuminance = lum;
   if (lum > 1e-4) litTexels++;
 }
 
-if (!(peak > 0)) {
+if (!(peakChannel > 0)) {
   throw new Error('atlas is entirely black — the bake or the denoiser produced nothing');
 }
 if (nanCount > 0) {
@@ -246,7 +274,7 @@ for (let dy = -1; dy <= 1; dy++) {
  * wrong half of each surface.
  */
 const rgb = new Uint8Array(atlasSize * atlasSize * 3);
-const inversePeak = 1 / peak;
+const inversePeak = 1 / peakChannel;
 
 /**
  * Quantisation is measured two ways, because one number cannot say whether 8
@@ -262,7 +290,7 @@ const inversePeak = 1 / peak;
  * absolute step below: if the step is below the bake's own noise level,
  * quantisation is not what limits the picture.
  */
-const BRIGHT = peak * 0.01;
+const BRIGHT = peakChannel * 0.01;
 let quantError = 0;
 let quantCount = 0;
 let brightError = 0;
@@ -281,7 +309,7 @@ for (let y = 0; y < atlasSize; y++) {
       rgb[dst + c] = byte;
 
       // Track the round trip so the precision claim can be checked.
-      const restored = decodeSrgb(byte) * peak;
+      const restored = decodeSrgb(byte) * peakChannel;
       const truth = Number.isFinite(linear) ? Math.max(linear, 0) : 0;
       if (truth > 1e-4) {
         quantError += Math.abs(restored - truth) / truth;
@@ -310,8 +338,17 @@ const meta = {
   margin: index.margin ?? 0,
   texelsPerMetre: index.packing.texels_mean,
   triangles,
-  /** Multiplied back into the decoded, gamma-inverted texel to recover radiance. */
-  peak,
+  /**
+   * The factor that turns a decoded texel back into radiance.
+   *
+   * This is the **largest channel value** in the bake, not its peak luminance —
+   * see the note above the scan that finds it. The two agree only while every
+   * light is warm and unsaturated, and the runtime would clip the difference
+   * away rather than report it, so the distinction is worth keeping straight.
+   */
+  peak: peakChannel,
+  /** Brightness of the hottest texel. Reported; not the normaliser. */
+  peakLuminance,
   /** `uv1` for meshes outside the bake: cleared above, so it samples true black. */
   blackUv: BLACK_UV,
   uvFile: 'lightmap-uv.bin',
@@ -336,7 +373,7 @@ console.log(
 );
 console.log(
   `  radiance    ${litTexels} lit texels (${((litTexels / texels) * 100).toFixed(1)}%), ` +
-    `peak ${peak.toFixed(2)}`
+    `peak channel ${peakChannel.toFixed(2)}, peak luminance ${peakLuminance.toFixed(2)}`
 );
 
 if (denoiseStats) {
@@ -363,7 +400,7 @@ if (quantCount > 0) {
   // format can represent in radiance, and it is the number to compare against
   // the bake's own residual noise: if noise is larger, the grain on screen is
   // Cycles', not the encoding's.
-  const step = peak / (255 * 12.92);
+  const step = peakChannel / (255 * 12.92);
   const noise = denoiseStats?.noiseAfter ?? null;
 
   console.log(

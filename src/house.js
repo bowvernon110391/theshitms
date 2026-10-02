@@ -1,8 +1,9 @@
 import * as THREE from 'three';
 import { CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
-import { HOUSE, OPENING, ROOMS, WALLS, CEILING_LAMPS } from './config.js';
-import { MAT, LAMP_MATERIAL, WINDOW_GLOW_MATERIAL } from './materials.js';
+import { HOUSE, OPENING, ROOMS, WALLS, CEILING_LAMPS, LIGHT_PALETTE, LIGHT_SEED } from './config.js';
+import { MAT, makeLampMaterial, WINDOW_GLOW_MATERIAL } from './materials.js';
 import { box, boxC, cyl, sph, plane, group, markEmitter } from './utils.js';
+import { lightColor } from './lightcolors.js';
 
 const H = HOUSE.wallHeight;
 const T = HOUSE.wallThickness;
@@ -335,25 +336,22 @@ function buildRoof() {
    Ceiling lights
    ──────────────────────────────────────────────────────────────── */
 
-function buildCeilingLamp(room, count, index) {
+function buildCeilingLamp(x, z, color) {
   const g = new THREE.Group();
-  const spots = CEILING_LAMPS[room.id] ?? [[(room.x0 + room.x1) / 2, (room.z0 + room.z1) / 2]];
-  const [x, z] = spots[index % spots.length];
-
   const y = H - 0.34;
-  const cord = cyl(0.014, 0.014, 0.24, MAT.steelDark, [x, y + 0.34, z], 6);
-  g.add(cord);
+  const glass = makeLampMaterial(color);
+
+  g.add(cyl(0.014, 0.014, 0.24, MAT.steelDark, [x, y + 0.34, z], 6));
 
   const shade = new THREE.Mesh(
     new THREE.CylinderGeometry(0.16, 0.3, 0.24, 20, 1, true),
-    LAMP_MATERIAL
+    glass
   );
   shade.position.set(x, y, z);
   shade.rotation.x = Math.PI;
   g.add(shade);
 
-  const bulb = sph(0.085, LAMP_MATERIAL, [x, y - 0.06, z], 12);
-  g.add(bulb);
+  g.add(sph(0.085, glass, [x, y - 0.06, z], 12));
 
   // The room's light is defined at H - 0.5, which sits just under this bulb and
   // shade — so without this the fixture shadows its own lamp.
@@ -361,40 +359,57 @@ function buildCeilingLamp(room, count, index) {
   return g;
 }
 
+/** Every ceiling fixture, flattened, so the mesh and its light are made together. */
+function ceilingFixtures() {
+  const out = [];
+
+  for (const room of ROOMS) {
+    const spots = CEILING_LAMPS[room.id];
+    if (!spots) continue;
+
+    spots.forEach(([x, z], index) => {
+      out.push({ room, x, z, index, count: spots.length });
+    });
+  }
+
+  return out;
+}
+
 /**
- * Build the ceiling lamp meshes, and return the *description* of each room's
- * light rather than a `THREE.PointLight`.
+ * The ceiling lamp meshes, and the *description* of each light rather than a
+ * `THREE.PointLight`.
  *
- * The lights are no longer part of the scene: they are baked offline into the
- * probe volume (see `tools/bake.mjs`), which is what gives them shadows and
- * stops them pouring through the walls. Keeping them as plain numbers here lets
- * the bake read them without touching the scene graph.
+ * The lights are not part of the scene: they are baked offline into the atlas
+ * and the probe volume, which is what gives them shadows and stops them pouring
+ * through the walls. Keeping them as plain numbers here lets the bake read them
+ * without touching the scene graph.
+ *
+ * One light per fixture. A room with three spots used to get a single light at
+ * their centroid, which is why a long room read as lit from nowhere in
+ * particular — a centroid light in a 12 m hallway only lights the middle of it.
  */
 function buildInteriorLights() {
   const g = new THREE.Group();
   g.name = 'interiorLights';
+
   /** @type {Array<{position: number[], color: THREE.Color, intensity: number, distance: number, decay: number, name: string}>} */
   const lightSpecs = [];
 
-  for (const room of ROOMS) {
-    const spots = CEILING_LAMPS[room.id] ?? [[(room.x0 + room.x1) / 2, (room.z0 + room.z1) / 2]];
-    const count = room.ceilingLamps ?? spots.length;
+  for (const { room, x, z, index, count } of ceilingFixtures()) {
+    const name = `light:${room.id}-${index + 1}`;
+    const color = lightColor(name, LIGHT_PALETTE.ceiling, LIGHT_SEED);
 
-    // A hanging lamp mesh at every spot...
-    for (let i = 0; i < count; i++) g.add(buildCeilingLamp(room, count, i));
-
-    // ...but only ONE light per room. A light is an area of influence, not a
-    // fixture, and every extra one costs the bake another shadow-ray set.
-    const cx = spots.reduce((a, s) => a + s[0], 0) / spots.length;
-    const cz = spots.reduce((a, s) => a + s[1], 0) / spots.length;
+    g.add(buildCeilingLamp(x, z, color));
 
     lightSpecs.push({
-      name: `light:${room.id}`,
-      // `room.light` is a hex literal; Color.setHex converts it from sRGB into
-      // the linear working space, matching what the renderer would have used.
-      color: new THREE.Color(room.light),
-      position: [cx, H - 0.5, cz],
-      intensity: (room.lightIntensity ?? 12) * 1.7,
+      name,
+      color,
+      position: [x, H - 0.5, z],
+      // Divided by the number of fixtures rather than repeated at full
+      // strength: the room used to be lit by one light at this intensity, so
+      // splitting it keeps the room's total output where it was while giving
+      // the falloff a real shape across the floor.
+      intensity: ((room.lightIntensity ?? 12) * 1.7) / count,
       distance: 12,
       decay: 2,
     });

@@ -1,11 +1,43 @@
 import * as THREE from 'three';
 import { MAT } from './materials.js';
-import { box, cyl, sph, group } from './utils.js';
+import { boxC, sph, group } from './utils.js';
 
 /**
- * Two blocky "Sims" pottering around the house. Each follows a hand-authored
+ * Two low-poly "Sims" pottering around the house. Each follows a hand-authored
  * waypoint loop that only ever crosses the floor through real doorways.
+ *
+ * ## Low-poly, yes — boxy, no
+ *
+ * These were built out of axis-aligned boxes and read as blocky for two
+ * reasons, and only one of them was the polycount.
+ *
+ * The first was shape. A box has hard edges at every corner, so a torso made of
+ * three boxes has three sets of them and no silhouette to speak of. The parts
+ * here are ellipsoids and capsules instead: same order of triangle count, but
+ * with smooth analytic normals, so they shade as rounded volumes. Several of
+ * them overlap deliberately — the waist and chest capsules are separate volumes
+ * whose intersection reads as a tapered trunk, which is cheaper and rounder
+ * than modelling one.
+ *
+ * The second was a genuine bug. The feet were built as children of the leg
+ * *pivots*, which put them at hip height — and because the legs stopped short
+ * of the floor, nothing was at y = 0 at all. Each sim floated 14 cm above the
+ * ground with two black boxes resting on its hip.
+ *
+ * ## Scale is baked into the geometry, not the transform
+ *
+ * `ellipsoid` calls `geometry.scale()`. The dynamic-light shader reconstructs a
+ * world normal as `mat3( modelMatrix ) * objectNormal`, which is only correct
+ * while the model matrix carries no non-uniform scale. Baking the scale in
+ * keeps that true; it also means these never need per-part matrix work.
  */
+
+/* Proportions, in metres. A sim is ~1.75 m tall including hair. */
+const HIP_Y = 0.86;
+const THIGH = 0.42;
+const SHIN = 0.40;
+const SHOULDER_Y = 1.30;
+const PLUMBOB_Y = 1.95;
 
 const PLUMBOB = new THREE.MeshStandardMaterial({
   color: 0x6cf07a,
@@ -16,6 +48,45 @@ const PLUMBOB = new THREE.MeshStandardMaterial({
   transparent: true,
   opacity: 0.92,
 });
+
+/**
+ * A smoothly shaded ellipsoid.
+ *
+ * Non-uniform radii are baked into the geometry — see the note at the top about
+ * world normals.
+ */
+function ellipsoid(rx, ry, rz, material, pos = [0, 0, 0], segments = 10) {
+  const geometry = new THREE.SphereGeometry(1, segments, Math.max(6, Math.round(segments * 0.6)));
+  geometry.scale(rx, ry, rz);
+
+  const mesh = new THREE.Mesh(geometry, material);
+  mesh.position.set(pos[0], pos[1], pos[2]);
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  return mesh;
+}
+
+/**
+ * A smoothly shaded capsule, `length` tall along Y and centred on `pos`.
+ *
+ * `capSegments = 3` is the low-poly end of what still reads as round; three
+ * generates the normals analytically from the profile, so the caps shade
+ * smoothly even at this resolution.
+ */
+function capsule(radius, length, material, pos = [0, 0, 0], segments = 10) {
+  const geometry = new THREE.CapsuleGeometry(
+    radius,
+    Math.max(length - 2 * radius, 0.001),
+    3,
+    segments
+  );
+
+  const mesh = new THREE.Mesh(geometry, material);
+  mesh.position.set(pos[0], pos[1], pos[2]);
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  return mesh;
+}
 
 class Sim {
   constructor({ name, shirt, trousers, hair, skin, route, speed }) {
@@ -35,59 +106,88 @@ class Sim {
     const skinMat = new THREE.MeshStandardMaterial({ color: skin, roughness: 0.82 });
     const hairMat = new THREE.MeshStandardMaterial({ color: hair, roughness: 0.95 });
 
-    // Everything above the hips bobs as one unit.
+    // Everything above the hips bobs and sways as one unit.
     this.body = new THREE.Group();
     this.root.add(this.body);
 
-    // Hips / pelvis
-    this.body.add(box(0.34, 0.2, 0.22, trouserMat, [0, 0.74, 0]));
+    // Trunk: pelvis, waist, chest. Three overlapping volumes rather than three
+    // boxes — the overlaps produce the taper, and the rounded silhouette is
+    // most of what stops these reading as blocky.
+    this.body.add(ellipsoid(0.175, 0.125, 0.12, trouserMat, [0, HIP_Y, 0]));
+    this.body.add(capsule(0.128, 0.30, shirtMat, [0, 1.02, 0]));
+    this.body.add(capsule(0.145, 0.30, shirtMat, [0, 1.20, 0]));
+    this.body.add(ellipsoid(0.205, 0.105, 0.13, shirtMat, [0, 1.325, 0]));
 
-    // Torso tapering to shoulders
-    this.body.add(box(0.36, 0.44, 0.24, shirtMat, [0, 0.94, 0]));
-    this.body.add(box(0.4, 0.16, 0.26, shirtMat, [0, 1.24, 0]));
-    // Collar
-    this.body.add(box(0.17, 0.07, 0.18, skinMat, [0, 1.38, 0]));
-
-    // Neck + head
-    this.body.add(cyl(0.055, 0.06, 0.1, skinMat, [0, 1.4, 0], 10));
+    // Neck, then the head as its own group so it can turn independently.
+    this.body.add(capsule(0.052, 0.13, skinMat, [0, 1.42, 0]));
     this.head = new THREE.Group();
-    this.head.position.set(0, 1.5, 0);
+    this.head.position.set(0, 1.50, 0);
     this.body.add(this.head);
-    this.head.add(sph(0.15, skinMat, [0, 0.12, 0], 16));
-    // Hair: a cap plus a fringe box
-    const cap = sph(0.155, hairMat, [0, 0.14, -0.01], 16);
-    cap.scale.set(1, 0.85, 1);
-    this.head.add(cap);
-    this.head.add(box(0.3, 0.09, 0.3, hairMat, [-0.15, 0.15, -0.15]));
-    // Eyes
+
+    this.head.add(ellipsoid(0.113, 0.138, 0.122, skinMat, [0, 0.09, 0]));
+    // Hair: a shell barely larger than the skull, pushed up and back so the
+    // face stays exposed. The old build used a box parked at (-0.15, 0.15,
+    // -0.15) relative to the head — off-centre, which hung it off one corner.
+    this.head.add(ellipsoid(0.126, 0.116, 0.131, hairMat, [0, 0.128, -0.012]));
     for (const s of [-1, 1]) {
-      this.head.add(sph(0.027, MAT.black, [s * 0.055, 0.13, 0.135], 8));
+      this.head.add(sph(0.021, MAT.black, [s * 0.048, 0.082, 0.113], 8));
     }
 
-    // Arms with shoulder pivots
-    this.armL = new THREE.Group();
-    this.armR = new THREE.Group();
-    for (const [pivot, s] of [[this.armL, -1], [this.armR, 1]]) {
-      pivot.position.set(s * 0.235, 1.3, 0);
-      pivot.add(sph(0.075, shirtMat, [0, 0, 0], 10));
-      pivot.add(cyl(0.055, 0.05, 0.44, shirtMat, [0, -0.44, 0], 10));
-      pivot.add(cyl(0.05, 0.045, 0.16, skinMat, [0, -0.6, 0], 10));
-      this.body.add(pivot);
+    // Arms: a shoulder and an elbow pivot each, so the swing has a joint in it.
+    // The old single straight cylinder is a large part of why the walk read as
+    // stiff.
+    this.shoulderL = new THREE.Group();
+    this.shoulderR = new THREE.Group();
+    this.elbowL = new THREE.Group();
+    this.elbowR = new THREE.Group();
+
+    for (const [shoulder, elbow, s] of [
+      [this.shoulderL, this.elbowL, -1],
+      [this.shoulderR, this.elbowR, 1],
+    ]) {
+      shoulder.position.set(s * 0.195, SHOULDER_Y, 0);
+      shoulder.add(ellipsoid(0.075, 0.072, 0.075, shirtMat, [0, 0, 0]));
+      shoulder.add(capsule(0.056, 0.31, shirtMat, [0, -0.155, 0]));
+
+      elbow.position.set(0, -0.30, 0);
+      elbow.add(capsule(0.048, 0.28, skinMat, [0, -0.14, 0]));
+      elbow.add(ellipsoid(0.05, 0.062, 0.042, skinMat, [0, -0.295, 0]));
+
+      shoulder.add(elbow);
+      this.body.add(shoulder);
     }
 
-    // Legs with hip pivots
-    this.legL = new THREE.Group();
-    this.legR = new THREE.Group();
-    for (const [pivot, s] of [[this.legL, -1], [this.legR, 1]]) {
-      pivot.position.set(s * 0.1, 0.76, 0);
-      pivot.add(cyl(0.075, 0.065, 0.62, trouserMat, [0, -0.62, 0], 10));
-      pivot.add(box(0.13, 0.09, 0.24, MAT.black, [-0.065, 0, -0.06]));
-      this.root.add(pivot);
+    // Legs: hip and knee pivots, sole landing exactly on y = 0.
+    //
+    // The foot is placed by its base at `-SHIN` from the knee, and
+    // `HIP_Y - THIGH - SHIN = 0.04` is the ankle height — so the sole sits at
+    // 0.04 - 0.04 = 0. Getting this wrong is what left the previous build's
+    // feet floating at the hips with nothing touching the floor.
+    this.hipL = new THREE.Group();
+    this.hipR = new THREE.Group();
+    this.kneeL = new THREE.Group();
+    this.kneeR = new THREE.Group();
+
+    for (const [hip, knee, s] of [
+      [this.hipL, this.kneeL, -1],
+      [this.hipR, this.kneeR, 1],
+    ]) {
+      hip.position.set(s * 0.095, HIP_Y, 0);
+      hip.add(capsule(0.086, THIGH, trouserMat, [0, -THIGH / 2, 0]));
+
+      knee.position.set(0, -THIGH, 0);
+      knee.add(capsule(0.062, SHIN, trouserMat, [0, -SHIN / 2, 0]));
+      knee.add(boxC(0.115, 0.08, 0.235, MAT.black, [0, -SHIN, 0.035]));
+
+      hip.add(knee);
+      // Parented to the root, not the body: the bob moves the trunk only, so
+      // the planted leg does not sink through the floor with it.
+      this.root.add(hip);
     }
 
     // Plumbob, the little green diamond. Never merged: it spins.
     this.plumbob = new THREE.Mesh(new THREE.OctahedronGeometry(0.11, 0), PLUMBOB);
-    this.plumbob.position.set(0, 1.92, 0);
+    this.plumbob.position.set(0, PLUMBOB_Y, 0);
     this.plumbob.scale.set(0.7, 1.35, 0.7);
     this.plumbob.userData.noMerge = true;
     this.root.add(this.plumbob);
@@ -103,10 +203,10 @@ class Sim {
     });
 
     /**
-     * Baked-light uniforms, one per sim. Filled per frame from the probe
-     * volume by `refreshDynamicLight`, because a character's vertices cannot
-     * carry lighting baked for a position it has since walked away from.
-     * @type {Array<{value: import('three').Vector3}>}
+     * Baked-light uniform sets, one per material. Filled per frame from the
+     * probe volume by `refreshDynamicLight`, because a character's vertices
+     * cannot carry lighting baked for a position it has since walked away from.
+     * @type {Array<object>}
      */
     this.lightUniforms = [];
 
@@ -158,23 +258,34 @@ class Sim {
 
     this.root.rotation.y = this.heading;
 
-    // Limb swing + a slight bob and sway.
-    const swing = Math.sin(this.legPhase) * 0.55;
-    this.legL.rotation.x = swing;
-    this.legR.rotation.x = -swing;
-    this.armL.rotation.x = -swing * 0.8;
-    this.armR.rotation.x = swing * 0.8;
-    this.armL.rotation.z = 0.08;
-    this.armR.rotation.z = -0.08;
+    // Limb swing: hips and shoulders in antiphase, knees and elbows bending on
+    // the back half of the stroke only — a knee bends one way, so clamping at
+    // zero is what stops the leg hinging forward like a puppet.
+    const swing = Math.sin(this.legPhase) * 0.5;
+    const swingB = Math.sin(this.legPhase + Math.PI) * 0.5;
 
-    const idle = this.pauseFor > 0 ? 0.4 : 1;
-    this.body.position.y = Math.abs(Math.sin(this.legPhase)) * 0.035 * idle;
-    this.body.rotation.z = Math.sin(this.legPhase) * 0.025;
+    this.hipL.rotation.x = swing;
+    this.hipR.rotation.x = swingB;
+    this.kneeL.rotation.x = Math.max(0, swing) * 1.15;
+    this.kneeR.rotation.x = Math.max(0, swingB) * 1.15;
+
+    this.shoulderL.rotation.x = -swing * 0.75;
+    this.shoulderR.rotation.x = -swingB * 0.75;
+    this.shoulderL.rotation.z = 0.07;
+    this.shoulderR.rotation.z = -0.07;
+    this.elbowL.rotation.x = -0.18 - Math.max(0, -swing) * 0.5;
+    this.elbowR.rotation.x = -0.18 - Math.max(0, -swingB) * 0.5;
+
+    // Bob twice per stride; sway once. The bob is on the trunk only, so the
+    // legs stay planted rather than sinking with it.
+    const idle = this.pauseFor > 0 ? 0.35 : 1;
+    this.body.position.y = Math.abs(Math.sin(this.legPhase)) * 0.025 * idle;
+    this.body.rotation.z = Math.sin(this.legPhase) * 0.022;
     this.head.rotation.y = Math.sin(elapsed * 0.7 + this.speed * 9) * 0.28;
 
     // Plumbob bobs and spins.
     this.plumbob.rotation.y = elapsed * 2.2;
-    this.plumbob.position.y = 1.92 + Math.sin(elapsed * 2.6) * 0.045;
+    this.plumbob.position.y = PLUMBOB_Y + Math.sin(elapsed * 2.6) * 0.045;
   }
 }
 

@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { MAT, LAMP_MATERIAL } from './materials.js';
+import { MAT, makeLampMaterial } from './materials.js';
 import { box, boxC, cyl, sph, plane, group, markEmitter } from './utils.js';
 
 /**
@@ -485,46 +485,109 @@ export function makeTowelRack({ len = 0.7, y = 1.2 }) {
 
 /* ── Lighting fixtures ────────────────────────────────────────── */
 
-export function makeFloorLamp({ h = 1.55, shade = MAT.rugWarm } = {}) {
+/**
+ * Free-standing fixtures.
+ *
+ * Each builder records `userData.lightOffsetY` — the height of its own emitter
+ * above its origin — and `furnish.js` reads that back to place the matching
+ * light. Deriving the light's position from the fixture that draws the bulb is
+ * what stops the two drifting apart; the alternative is the same coordinate
+ * written down twice, in two files, with nothing to catch it going wrong.
+ *
+ * All three call `markEmitter`. That flag is easy to overlook and only becomes
+ * visible once a fixture actually casts light: the shade and bulb sit *around*
+ * the light's own position, so a fixture left in the bake's BVH occludes rays
+ * converging on its own lamp and paints dark bands on the nearest wall.
+ */
+export function makeFloorLamp({ h = 1.55, color = null } = {}) {
   const g = group('floorLamp');
   g.add(cyl(0.17, 0.19, 0.04, MAT.steelDark, [0, 0, 0], 16));
   g.add(cyl(0.018, 0.018, h, MAT.steelDark, [0, 0.04, 0], 10));
-  const cone = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.26, 0.26, 18, 1, true), LAMP_MATERIAL);
+
+  const glass = makeLampMaterial(color);
+
+  const cone = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.26, 0.26, 18, 1, true), glass);
   cone.position.set(0, h - 0.1, 0);
   cone.castShadow = true;
   g.add(cone);
-  const bulb = sph(0.06, LAMP_MATERIAL, [0, h - 0.16, 0], 12);
-  bulb.userData.noMerge = true;
-  cone.userData.noMerge = true;
-  g.add(bulb);
-  return g;
+
+  const bulbY = h - 0.16;
+  g.add(sph(0.06, glass, [0, bulbY, 0], 12));
+
+  // The bulb, not the shade: the light belongs inside the cone.
+  g.userData.lightOffsetY = bulbY;
+  return markEmitter(g);
 }
 
-export function makeTableLamp({ h = 0.36 } = {}) {
+export function makeTableLamp({ h = 0.36, color = null } = {}) {
   const g = group('tableLamp');
   g.add(cyl(0.09, 0.11, 0.03, MAT.woodDark, [0, 0, 0], 14));
   g.add(cyl(0.014, 0.014, h * 0.6, MAT.steelDark, [0, 0.03, 0], 8));
-  const cone = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.15, 0.17, 16, 1, true), LAMP_MATERIAL);
+
+  const cone = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.11, 0.15, 0.17, 16, 1, true),
+    makeLampMaterial(color)
+  );
   cone.position.set(0, h * 0.75, 0);
-  cone.userData.noMerge = true;
   g.add(cone);
-  return g;
+
+  g.userData.lightOffsetY = h * 0.75;
+  return markEmitter(g);
 }
 
-export function makePendantLamp({ y = 2.0, drop = 0.5, radius = 0.26 } = {}) {
+export function makePendantLamp({ y = 2.0, drop = 0.5, radius = 0.26, color = null } = {}) {
   const g = group('pendant');
   g.add(cyl(0.012, 0.012, drop, MAT.steelDark, [0, y + 0.3, 0], 6));
+
   const dome = new THREE.Mesh(
     new THREE.SphereGeometry(radius, 20, 10, 0, Math.PI * 2, 0, Math.PI * 0.55),
-    LAMP_MATERIAL
+    makeLampMaterial(color)
   );
   dome.position.set(0, y, 0);
   dome.rotation.x = Math.PI;
   g.add(dome);
   g.add(cyl(0.02, 0.02, 0.05, MAT.steelDark, [0, y + 0.02, 0], 8));
-  // The dining room's light sits inside this dome, so the same self-shadowing
-  // problem as the ceiling lamps applies here.
+
+  // The dome's own centre, which is where the light wants to be — the fixture
+  // is excluded from the bake, so the shade does not block the light downward;
+  // it only has to *look* as if it could have come from in there.
+  g.userData.lightOffsetY = y;
   return markEmitter(g);
+}
+
+/** Fixture kinds `config.js` may name by string. */
+const FIXTURES = {
+  floorLamp: makeFloorLamp,
+  tableLamp: makeTableLamp,
+  pendant: makePendantLamp,
+};
+
+/**
+ * Build the fixture an `ACCENT_LAMPS` entry asks for.
+ *
+ * The placement bookkeeping (`id`, `room`, `x`, `z`, `base`, `intensity`) is
+ * stripped here; only the fields the builders understand are forwarded. An
+ * unknown `kind` throws rather than silently building nothing, because a lamp
+ * that simply does not appear is far harder to trace than a failed build.
+ *
+ * @param {{kind: string}} spec
+ */
+export function makeFixture(spec) {
+  const build = FIXTURES[spec.kind];
+  if (!build) {
+    throw new Error(
+      `accent lamp "${spec.id}": unknown kind "${spec.kind}". ` +
+        `Known kinds: ${Object.keys(FIXTURES).join(', ')}.`
+    );
+  }
+
+  return build({
+    h: spec.h,
+    y: spec.y,
+    drop: spec.drop,
+    radius: spec.radius,
+    color: spec.color ?? null,
+  });
 }
 
 /* ── Decor ────────────────────────────────────────────────────── */

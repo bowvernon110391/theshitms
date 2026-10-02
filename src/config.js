@@ -43,8 +43,13 @@ export const OPENING = {  door: { bottom: 0, top: 2.15 },
 
 /**
  * Rooms are axis-aligned rectangles in tile space.
- * `floor` selects a floor material, `accent` colours the UI chip,
- * `light` is the warm ceiling-light tint.
+ * `floor` selects a floor material, `accent` colours the UI chip, and
+ * `lightIntensity` is the room's total light budget — see `CEILING_LAMPS` and
+ * `ACCENT_LAMPS` for how it is divided up.
+ *
+ * There is deliberately no per-room light *colour* here: the colours are
+ * generated from `LIGHT_PALETTE` so they can be re-rolled with `LIGHT_SEED`,
+ * and a hand-set hex per room would silently win over nothing.
  */
 export const ROOMS = [
   {
@@ -53,7 +58,6 @@ export const ROOMS = [
     x0: 0, z0: 0, x1: 4, z1: 4,
     floor: 'oak',
     accent: 0xd9a066,
-    light: 0xffd9a8,
     lightIntensity: 16,
   },
   {
@@ -62,7 +66,6 @@ export const ROOMS = [
     x0: 4, z0: 0, x1: 8, z1: 4,
     floor: 'oak',
     accent: 0xc98b56,
-    light: 0xffcf9a,
     lightIntensity: 14,
   },
   {
@@ -71,7 +74,6 @@ export const ROOMS = [
     x0: 8, z0: 0, x1: 12, z1: 4,
     floor: 'tile',
     accent: 0x8fb8c9,
-    light: 0xfff0d0,
     lightIntensity: 18,
   },
   {
@@ -80,9 +82,7 @@ export const ROOMS = [
     x0: 0, z0: 4, x1: 12, z1: 6,
     floor: 'oak',
     accent: 0xb9a17e,
-    light: 0xffe3bd,
     lightIntensity: 12,
-    ceilingLamps: 3,
   },
   {
     id: 'bedroom',
@@ -90,7 +90,6 @@ export const ROOMS = [
     x0: 0, z0: 6, x1: 4, z1: 10,
     floor: 'carpet',
     accent: 0xa88bc4,
-    light: 0xffc9a3,
     lightIntensity: 10,
   },
   {
@@ -99,7 +98,6 @@ export const ROOMS = [
     x0: 4, z0: 6, x1: 8, z1: 10,
     floor: 'tileDark',
     accent: 0x7fbfc9,
-    light: 0xdcefff,
     lightIntensity: 12,
   },
   {
@@ -108,7 +106,6 @@ export const ROOMS = [
     x0: 8, z0: 6, x1: 12, z1: 10,
     floor: 'oak',
     accent: 0x8aa87a,
-    light: 0xffe0b0,
     lightIntensity: 10,
   },
 ];
@@ -189,15 +186,110 @@ export const WALLS = [
   },
 ];
 
-/** Ceiling-light positions, keyed by room id. */
+/**
+ * Ceiling-light positions, keyed by room id. **Every entry is one light.**
+ *
+ * There is no longer a "lanterns but one light" distinction: a room with three
+ * spots gets three lights, each emitting a third of the room's budget, so the
+ * room's total output is unchanged but the falloff across it is real. A single
+ * centroid light in a 12 m hallway only ever lit the middle of it.
+ *
+ * Dining is deliberately absent — its pendant hangs over the table, and the old
+ * ceiling light sat 30 cm from it, which was two sources fighting in the same
+ * place rather than a room lit twice.
+ */
 export const CEILING_LAMPS = {
-  living: [[2, 2], [2, 3.2]],
-  dining: [[6, 2]],
+  living: [[1.9, 1.5], [2.6, 2.9]],
   kitchen: [[9.2, 1.2], [10.8, 2.8]],
   hall: [[1.6, 5], [6, 5], [10.4, 5]],
   bedroom: [[2, 8]],
   bath: [[6, 8.4]],
   office: [[10, 8]],
+};
+
+/**
+ * Free-standing lamps, and the lights inside them.
+ *
+ * These are data rather than inline placements because each one has to exist
+ * twice — as a fixture you can see, and as a light the bake can read. Writing
+ * the coordinate once and deriving both from it is the only way the two stay in
+ * agreement; hand-matching them across two files is exactly the kind of drift
+ * that shows up as "the light is 20 cm to the left of the lamp".
+ *
+ * `intensity` is in three.js irradiance units, directly comparable to the
+ * ceiling lights' `lightIntensity`. These are lower because a floor lamp is a
+ * local pool of light, not a room's worth of it.
+ *
+ * `base` is the height of the surface the lamp stands on. `h`/`y`/`radius` are
+ * passed through to the fixture builder.
+ */
+export const ACCENT_LAMPS = [
+  // The dining pendant *is* the dining light — it hangs over the table, which
+  // is where a dining room wants its light.
+  {
+    id: 'dining-pendant', kind: 'pendant', room: 'dining',
+    x: 6.0, z: 2.3, y: 1.95, drop: 0.68, radius: 0.3,
+    intensity: 15,
+  },
+  // Living: front corner, tucked behind the floor lamp's own shadow line from
+  // the sofa, so it reads as a reading light rather than a second ceiling.
+  {
+    id: 'living-floor', kind: 'floorLamp', room: 'living',
+    x: 3.5, z: 0.5, h: 1.55,
+    intensity: 9,
+  },
+  // Bedroom: one on each nightstand. A pair, because a single bedside lamp
+  // reads as an oversight and the symmetry is what sells it as a bedroom.
+  {
+    id: 'bedroom-lamp-a', kind: 'tableLamp', room: 'bedroom',
+    x: 3.65, z: 9.6, base: 0.56, h: 0.36,
+    intensity: 5.5,
+  },
+  {
+    id: 'bedroom-lamp-b', kind: 'tableLamp', room: 'bedroom',
+    x: 3.65, z: 7.2, base: 0.56, h: 0.36,
+    intensity: 5.5,
+  },
+  // Study: standing lamp beside the armchair.
+  {
+    id: 'study-floor', kind: 'floorLamp', room: 'office',
+    x: 8.5, z: 6.6, h: 1.5,
+    intensity: 10,
+  },
+  // Hallway: on the console table, so the corridor gets a second pool of light
+  // away from the three ceiling lamps.
+  {
+    id: 'hall-console', kind: 'tableLamp', room: 'hall',
+    x: 3.85, z: 4.36, base: 0.78, h: 0.4,
+    intensity: 6,
+  },
+];
+
+/**
+ * Re-rolls every light colour at once.
+ *
+ * The colours are seeded so a re-bake reproduces them exactly — an expensive
+ * bake you cannot compare against the last one is close to useless. Change this
+ * to get a different house.
+ */
+export const LIGHT_SEED = 20261002;
+
+/**
+ * Colour ranges for the two kinds of light, in HSL.
+ *
+ * Ceiling lights are constrained to a warm band: hue 34–56° is amber through to
+ * pale gold, and the low saturation keeps them reading as "warm white" rather
+ * than orange. That range *is* the "yellowish to whiteish" brief — expressed so
+ * that blue is not something anyone has to remember not to pick.
+ *
+ * Accents get the whole wheel at high saturation, because the contrast between
+ * a warm envelope and saturated pools of colour is the effect being asked for.
+ * Lightness stays mid-range: too light desaturates them into white, too dark
+ * leaves no headroom to actually tint the surfaces they reach.
+ */
+export const LIGHT_PALETTE = {
+  ceiling: { hue: [34, 56], sat: [0.03, 0.28], light: [0.85, 0.99] },
+  accent: { hue: [0, 360], sat: [0.72, 1.0], light: [0.5, 0.62] },
 };
 
 /** Camera presets. */

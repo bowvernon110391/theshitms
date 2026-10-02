@@ -3,13 +3,13 @@
   "version": 1,
   "atlasSize": 1024,
   "margin": 4,
-  "triangles": 29194,
+  "triangles": 28378,
   "packing": {
-    "fill": 0.40834829876539996,
-    "area": 1386.9507256990364,
-    "texels_min": 17.570528141261075,
-    "texels_mean": 17.570528141261075,
-    "texels_max": 17.570528141261075,
+    "fill": 0.4107206759986897,
+    "area": 1385.0111860300858,
+    "texels_min": 17.6338279525201,
+    "texels_mean": 17.6338279525201,
+    "texels_max": 17.6338279525201,
     "spread": 1.0
   },
   "bounds": {

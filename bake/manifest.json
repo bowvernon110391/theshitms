@@ -1,8 +1,8 @@
 {
   "format": "jjjs-manifest",
   "version": 1,
-  "totalTriangles": 29194,
-  "totalMaterials": 58,
+  "totalTriangles": 28378,
+  "totalMaterials": 57,
   "ranges": [
     {
       "name": "",
@@ -156,12 +156,12 @@
     },
     {
       "name": "",
-      "triangleOffset": 8644,
+      "triangleOffset": 8588,
       "triangles": 2
     },
     {
       "name": "",
-      "triangleOffset": 8686,
+      "triangleOffset": 8630,
       "triangles": 2
     },
     {
@@ -186,7 +186,7 @@
     },
     {
       "name": "",
-      "triangleOffset": 8646,
+      "triangleOffset": 8590,
       "triangles": 2
     },
     {
@@ -196,7 +196,7 @@
     },
     {
       "name": "",
-      "triangleOffset": 8688,
+      "triangleOffset": 8632,
       "triangles": 2
     },
     {
@@ -221,7 +221,7 @@
     },
     {
       "name": "",
-      "triangleOffset": 8648,
+      "triangleOffset": 8592,
       "triangles": 2
     },
     {
@@ -231,52 +231,52 @@
     },
     {
       "name": "",
-      "triangleOffset": 8690,
+      "triangleOffset": 8634,
       "triangles": 2
     },
     {
       "name": "",
-      "triangleOffset": 8704,
+      "triangleOffset": 8648,
       "triangles": 12
     },
     {
       "name": "",
-      "triangleOffset": 8716,
+      "triangleOffset": 8660,
       "triangles": 12
     },
     {
       "name": "",
-      "triangleOffset": 8728,
+      "triangleOffset": 8672,
       "triangles": 12
     },
     {
       "name": "",
-      "triangleOffset": 8740,
+      "triangleOffset": 8684,
       "triangles": 12
     },
     {
       "name": "",
-      "triangleOffset": 8752,
+      "triangleOffset": 8696,
       "triangles": 12
     },
     {
       "name": "",
-      "triangleOffset": 8764,
+      "triangleOffset": 8708,
       "triangles": 12
     },
     {
       "name": "",
-      "triangleOffset": 8776,
+      "triangleOffset": 8720,
       "triangles": 12
     },
     {
       "name": "",
-      "triangleOffset": 8788,
+      "triangleOffset": 8732,
       "triangles": 12
     },
     {
       "name": "",
-      "triangleOffset": 8800,
+      "triangleOffset": 8744,
       "triangles": 12
     },
     {
@@ -296,7 +296,7 @@
     },
     {
       "name": "",
-      "triangleOffset": 8650,
+      "triangleOffset": 8594,
       "triangles": 12
     },
     {
@@ -311,7 +311,7 @@
     },
     {
       "name": "",
-      "triangleOffset": 8662,
+      "triangleOffset": 8606,
       "triangles": 12
     },
     {
@@ -346,12 +346,12 @@
     },
     {
       "name": "",
-      "triangleOffset": 8674,
+      "triangleOffset": 8618,
       "triangles": 2
     },
     {
       "name": "",
-      "triangleOffset": 8692,
+      "triangleOffset": 8636,
       "triangles": 2
     },
     {
@@ -376,7 +376,7 @@
     },
     {
       "name": "",
-      "triangleOffset": 8676,
+      "triangleOffset": 8620,
       "triangles": 2
     },
     {
@@ -386,42 +386,42 @@
     },
     {
       "name": "",
-      "triangleOffset": 8694,
+      "triangleOffset": 8638,
       "triangles": 2
     },
     {
       "name": "",
-      "triangleOffset": 8812,
+      "triangleOffset": 8756,
       "triangles": 12
     },
     {
       "name": "",
-      "triangleOffset": 8824,
+      "triangleOffset": 8768,
       "triangles": 12
     },
     {
       "name": "",
-      "triangleOffset": 8836,
+      "triangleOffset": 8780,
       "triangles": 12
     },
     {
       "name": "",
-      "triangleOffset": 8848,
+      "triangleOffset": 8792,
       "triangles": 12
     },
     {
       "name": "",
-      "triangleOffset": 8860,
+      "triangleOffset": 8804,
       "triangles": 12
     },
     {
       "name": "",
-      "triangleOffset": 8872,
+      "triangleOffset": 8816,
       "triangles": 12
     },
     {
       "name": "",
-      "triangleOffset": 8884,
+      "triangleOffset": 8828,
       "triangles": 12
     },
     {
@@ -446,7 +446,7 @@
     },
     {
       "name": "",
-      "triangleOffset": 8678,
+      "triangleOffset": 8622,
       "triangles": 2
     },
     {
@@ -456,7 +456,7 @@
     },
     {
       "name": "",
-      "triangleOffset": 8696,
+      "triangleOffset": 8640,
       "triangles": 2
     },
     {
@@ -481,47 +481,47 @@
     },
     {
       "name": "",
-      "triangleOffset": 8680,
+      "triangleOffset": 8624,
       "triangles": 2
     },
     {
       "name": "",
-      "triangleOffset": 8698,
+      "triangleOffset": 8642,
       "triangles": 2
     },
     {
       "name": "",
-      "triangleOffset": 8896,
+      "triangleOffset": 8840,
       "triangles": 12
     },
     {
       "name": "",
-      "triangleOffset": 8908,
+      "triangleOffset": 8852,
       "triangles": 12
     },
     {
       "name": "",
-      "triangleOffset": 8920,
+      "triangleOffset": 8864,
       "triangles": 12
     },
     {
       "name": "",
-      "triangleOffset": 8932,
+      "triangleOffset": 8876,
       "triangles": 12
     },
     {
       "name": "",
-      "triangleOffset": 8944,
+      "triangleOffset": 8888,
       "triangles": 12
     },
     {
       "name": "",
-      "triangleOffset": 8956,
+      "triangleOffset": 8900,
       "triangles": 12
     },
     {
       "name": "",
-      "triangleOffset": 8968,
+      "triangleOffset": 8912,
       "triangles": 12
     },
     {
@@ -546,7 +546,7 @@
     },
     {
       "name": "",
-      "triangleOffset": 8682,
+      "triangleOffset": 8626,
       "triangles": 2
     },
     {
@@ -556,7 +556,7 @@
     },
     {
       "name": "",
-      "triangleOffset": 8700,
+      "triangleOffset": 8644,
       "triangles": 2
     },
     {
@@ -581,7 +581,7 @@
     },
     {
       "name": "",
-      "triangleOffset": 8684,
+      "triangleOffset": 8628,
       "triangles": 2
     },
     {
@@ -591,32 +591,32 @@
     },
     {
       "name": "",
-      "triangleOffset": 8702,
+      "triangleOffset": 8646,
       "triangles": 2
     },
     {
       "name": "",
-      "triangleOffset": 8980,
+      "triangleOffset": 8924,
       "triangles": 12
     },
     {
       "name": "",
-      "triangleOffset": 8992,
+      "triangleOffset": 8936,
       "triangles": 12
     },
     {
       "name": "",
-      "triangleOffset": 9004,
+      "triangleOffset": 8948,
       "triangles": 12
     },
     {
       "name": "",
-      "triangleOffset": 9016,
+      "triangleOffset": 8960,
       "triangles": 12
     },
     {
       "name": "",
-      "triangleOffset": 9028,
+      "triangleOffset": 8972,
       "triangles": 12
     },
     {
@@ -636,27 +636,27 @@
     },
     {
       "name": "",
-      "triangleOffset": 9184,
+      "triangleOffset": 9128,
       "triangles": 12
     },
     {
       "name": "",
-      "triangleOffset": 9196,
+      "triangleOffset": 9140,
       "triangles": 12
     },
     {
       "name": "",
-      "triangleOffset": 9208,
+      "triangleOffset": 9152,
       "triangles": 12
     },
     {
       "name": "",
-      "triangleOffset": 9040,
+      "triangleOffset": 8984,
       "triangles": 12
     },
     {
       "name": "",
-      "triangleOffset": 9052,
+      "triangleOffset": 8996,
       "triangles": 12
     },
     {
@@ -676,77 +676,77 @@
     },
     {
       "name": "",
-      "triangleOffset": 9220,
+      "triangleOffset": 9164,
       "triangles": 12
     },
     {
       "name": "",
-      "triangleOffset": 9064,
+      "triangleOffset": 9008,
       "triangles": 12
     },
     {
       "name": "",
-      "triangleOffset": 9232,
+      "triangleOffset": 9176,
       "triangles": 12
     },
     {
       "name": "",
-      "triangleOffset": 9076,
+      "triangleOffset": 9020,
       "triangles": 12
     },
     {
       "name": "",
-      "triangleOffset": 9244,
+      "triangleOffset": 9188,
       "triangles": 12
     },
     {
       "name": "",
-      "triangleOffset": 9256,
+      "triangleOffset": 9200,
       "triangles": 12
     },
     {
       "name": "",
-      "triangleOffset": 9268,
+      "triangleOffset": 9212,
       "triangles": 12
     },
     {
       "name": "",
-      "triangleOffset": 9280,
+      "triangleOffset": 9224,
       "triangles": 12
     },
     {
       "name": "",
-      "triangleOffset": 9292,
+      "triangleOffset": 9236,
       "triangles": 12
     },
     {
       "name": "",
-      "triangleOffset": 9304,
+      "triangleOffset": 9248,
       "triangles": 12
     },
     {
       "name": "",
-      "triangleOffset": 9316,
+      "triangleOffset": 9260,
       "triangles": 12
     },
     {
       "name": "",
-      "triangleOffset": 9088,
+      "triangleOffset": 9032,
       "triangles": 12
     },
     {
       "name": "",
-      "triangleOffset": 9100,
+      "triangleOffset": 9044,
       "triangles": 12
     },
     {
       "name": "",
-      "triangleOffset": 9112,
+      "triangleOffset": 9056,
       "triangles": 12
     },
     {
       "name": "",
-      "triangleOffset": 9124,
+      "triangleOffset": 9068,
       "triangles": 12
     },
     {
@@ -766,7 +766,7 @@
     },
     {
       "name": "",
-      "triangleOffset": 9328,
+      "triangleOffset": 9272,
       "triangles": 12
     },
     {
@@ -796,7 +796,7 @@
     },
     {
       "name": "",
-      "triangleOffset": 9340,
+      "triangleOffset": 9284,
       "triangles": 12
     },
     {
@@ -826,7 +826,7 @@
     },
     {
       "name": "",
-      "triangleOffset": 9352,
+      "triangleOffset": 9296,
       "triangles": 12
     },
     {
@@ -841,57 +841,57 @@
     },
     {
       "name": "",
-      "triangleOffset": 9400,
+      "triangleOffset": 9344,
       "triangles": 12
     },
     {
       "name": "",
-      "triangleOffset": 9412,
+      "triangleOffset": 9356,
       "triangles": 12
     },
     {
       "name": "",
-      "triangleOffset": 9424,
+      "triangleOffset": 9368,
       "triangles": 12
     },
     {
       "name": "",
-      "triangleOffset": 9436,
+      "triangleOffset": 9380,
       "triangles": 12
     },
     {
       "name": "",
-      "triangleOffset": 9448,
+      "triangleOffset": 9392,
       "triangles": 12
     },
     {
       "name": "",
-      "triangleOffset": 9460,
+      "triangleOffset": 9404,
       "triangles": 12
     },
     {
       "name": "",
-      "triangleOffset": 9472,
+      "triangleOffset": 9416,
       "triangles": 12
     },
     {
       "name": "",
-      "triangleOffset": 9136,
+      "triangleOffset": 9080,
       "triangles": 12
     },
     {
       "name": "",
-      "triangleOffset": 9148,
+      "triangleOffset": 9092,
       "triangles": 12
     },
     {
       "name": "",
-      "triangleOffset": 9160,
+      "triangleOffset": 9104,
       "triangles": 12
     },
     {
       "name": "",
-      "triangleOffset": 9172,
+      "triangleOffset": 9116,
       "triangles": 12
     },
     {
@@ -911,7 +911,7 @@
     },
     {
       "name": "",
-      "triangleOffset": 9364,
+      "triangleOffset": 9308,
       "triangles": 12
     },
     {
@@ -941,7 +941,7 @@
     },
     {
       "name": "",
-      "triangleOffset": 9376,
+      "triangleOffset": 9320,
       "triangles": 12
     },
     {
@@ -971,7 +971,7 @@
     },
     {
       "name": "",
-      "triangleOffset": 9388,
+      "triangleOffset": 9332,
       "triangles": 12
     },
     {
@@ -986,72 +986,72 @@
     },
     {
       "name": "",
-      "triangleOffset": 9484,
+      "triangleOffset": 9428,
       "triangles": 12
     },
     {
       "name": "",
-      "triangleOffset": 9496,
+      "triangleOffset": 9440,
       "triangles": 12
     },
     {
       "name": "",
-      "triangleOffset": 9508,
+      "triangleOffset": 9452,
       "triangles": 12
     },
     {
       "name": "",
-      "triangleOffset": 9520,
+      "triangleOffset": 9464,
       "triangles": 48
     },
     {
       "name": "",
-      "triangleOffset": 9568,
+      "triangleOffset": 9512,
       "triangles": 32
     },
     {
       "name": "",
-      "triangleOffset": 9924,
+      "triangleOffset": 9868,
       "triangles": 12
     },
     {
       "name": "",
       "triangleOffset": 7340,
-      "triangles": 1304
+      "triangles": 1248
     },
     {
       "name": "",
-      "triangleOffset": 10216,
+      "triangleOffset": 10160,
       "triangles": 132
     },
     {
       "name": "",
-      "triangleOffset": 10348,
+      "triangleOffset": 10292,
       "triangles": 196
     },
     {
       "name": "",
-      "triangleOffset": 10544,
+      "triangleOffset": 10488,
       "triangles": 264
     },
     {
       "name": "",
-      "triangleOffset": 10808,
+      "triangleOffset": 10752,
       "triangles": 2484
     },
     {
       "name": "",
-      "triangleOffset": 13292,
+      "triangleOffset": 13236,
       "triangles": 252
     },
     {
       "name": "",
-      "triangleOffset": 9600,
+      "triangleOffset": 9544,
       "triangles": 324
     },
     {
       "name": "",
-      "triangleOffset": 9936,
+      "triangleOffset": 9880,
       "triangles": 280
     },
     {
@@ -1061,97 +1061,97 @@
     },
     {
       "name": "",
-      "triangleOffset": 13550,
+      "triangleOffset": 13494,
       "triangles": 12
     },
     {
       "name": "",
-      "triangleOffset": 13562,
+      "triangleOffset": 13506,
       "triangles": 240
     },
     {
       "name": "",
-      "triangleOffset": 13810,
+      "triangleOffset": 13754,
       "triangles": 276
     },
     {
       "name": "",
-      "triangleOffset": 14092,
+      "triangleOffset": 14036,
       "triangles": 368
     },
     {
       "name": "",
-      "triangleOffset": 14460,
+      "triangleOffset": 14404,
       "triangles": 5324
     },
     {
       "name": "",
-      "triangleOffset": 19784,
+      "triangleOffset": 19728,
       "triangles": 868
     },
     {
       "name": "",
-      "triangleOffset": 20652,
-      "triangles": 868
-    },
-    {
-      "name": "",
-      "triangleOffset": 21520,
+      "triangleOffset": 20596,
       "triangles": 224
     },
     {
       "name": "",
-      "triangleOffset": 21744,
+      "triangleOffset": 20820,
       "triangles": 5040
     },
     {
       "name": "",
-      "triangleOffset": 26784,
+      "triangleOffset": 25860,
       "triangles": 140
     },
     {
       "name": "",
-      "triangleOffset": 26924,
+      "triangleOffset": 26000,
       "triangles": 136
     },
     {
       "name": "",
-      "triangleOffset": 27060,
+      "triangleOffset": 26136,
       "triangles": 576
     },
     {
       "name": "",
-      "triangleOffset": 27636,
+      "triangleOffset": 26712,
       "triangles": 144
     },
     {
       "name": "",
-      "triangleOffset": 27780,
+      "triangleOffset": 26856,
+      "triangles": 548
+    },
+    {
+      "name": "",
+      "triangleOffset": 27404,
       "triangles": 540
     },
     {
       "name": "",
-      "triangleOffset": 28320,
+      "triangleOffset": 27944,
       "triangles": 116
     },
     {
       "name": "",
-      "triangleOffset": 28436,
+      "triangleOffset": 28060,
       "triangles": 96
     },
     {
       "name": "",
-      "triangleOffset": 28532,
+      "triangleOffset": 28156,
       "triangles": 112
     },
     {
       "name": "",
-      "triangleOffset": 28644,
+      "triangleOffset": 28268,
       "triangles": 76
     },
     {
       "name": "",
-      "triangleOffset": 28720,
+      "triangleOffset": 28344,
       "triangles": 24
     },
     {
@@ -1161,103 +1161,78 @@
     },
     {
       "name": "",
-      "triangleOffset": 13802,
+      "triangleOffset": 13746,
       "triangles": 2
     },
     {
       "name": "",
-      "triangleOffset": 28744,
+      "triangleOffset": 28368,
       "triangles": 2
     },
     {
       "name": "",
-      "triangleOffset": 13804,
+      "triangleOffset": 13748,
       "triangles": 2
     },
     {
       "name": "",
-      "triangleOffset": 28746,
-      "triangles": 36
-    },
-    {
-      "name": "",
-      "triangleOffset": 28782,
-      "triangles": 168
-    },
-    {
-      "name": "",
-      "triangleOffset": 13544,
+      "triangleOffset": 13488,
       "triangles": 2
     },
     {
       "name": "",
-      "triangleOffset": 29186,
+      "triangleOffset": 28370,
       "triangles": 2
     },
     {
       "name": "",
-      "triangleOffset": 13546,
+      "triangleOffset": 13490,
       "triangles": 2
     },
     {
       "name": "",
-      "triangleOffset": 14086,
+      "triangleOffset": 14030,
       "triangles": 2
     },
     {
       "name": "",
-      "triangleOffset": 28950,
-      "triangles": 32
-    },
-    {
-      "name": "",
-      "triangleOffset": 14088,
+      "triangleOffset": 14032,
       "triangles": 2
     },
     {
       "name": "",
-      "triangleOffset": 29188,
+      "triangleOffset": 28372,
       "triangles": 2
     },
     {
       "name": "",
-      "triangleOffset": 14090,
+      "triangleOffset": 14034,
       "triangles": 2
     },
     {
       "name": "",
-      "triangleOffset": 29190,
+      "triangleOffset": 28374,
       "triangles": 2
     },
     {
       "name": "",
-      "triangleOffset": 13548,
+      "triangleOffset": 13492,
       "triangles": 2
     },
     {
       "name": "",
-      "triangleOffset": 13806,
+      "triangleOffset": 13750,
       "triangles": 2
     },
     {
       "name": "",
-      "triangleOffset": 29192,
+      "triangleOffset": 28376,
       "triangles": 2
     },
     {
       "name": "",
-      "triangleOffset": 13808,
+      "triangleOffset": 13752,
       "triangles": 2
-    },
-    {
-      "name": "",
-      "triangleOffset": 28982,
-      "triangles": 36
-    },
-    {
-      "name": "",
-      "triangleOffset": 29018,
-      "triangles": 168
     }
   ]
 }

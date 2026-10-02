@@ -259,7 +259,11 @@ function buildPlanting() {
   const trees = [
     [-3.4, 2.2, 0, 1.9],
     [-3.0, 12.5, 1, 1.6],
-    [15.0, 3.0, 2, 2.1],
+    // There was a tree at (15.0, 3.0) here. The car is parked at (14.6, 3.0),
+    // so the two overlapped by about 0.8 m — the trunk stood inside the
+    // bodywork and the canopy clipped through the roof. Removed rather than
+    // nudged: the driveway wants the space, and the remaining four trees
+    // already frame the plot at the corners.
     [14.2, 12.8, 0, 1.7],
     [-3.6, -3.4, 1, 1.5],
   ];
