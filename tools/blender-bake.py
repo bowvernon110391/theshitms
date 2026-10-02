@@ -515,13 +515,19 @@ if DENOISE:
 else:
     scene.cycles.use_denoising = False
 
+scene.cycles.diffuse_bounces = 2
+scene.cycles.max_bounces = 4
+
 bake = scene.render.bake
 bake.use_pass_direct = True
 bake.use_pass_indirect = True
+bake.use_pass_diffuse = True
 # COLOR off is what keeps the albedo out of the result.
 bake.use_pass_color = False
 bake.margin = MARGIN
 bake.use_clear = True
+
+bpy.context.scene.world.cycles_visibility.glossy = False
 
 # Expose the margin as an extension of the island edges. This replaces the
 # manual dilation the old baker needed, and does it properly.
@@ -560,8 +566,8 @@ for obj in imported:
 bpy.context.view_layer.objects.active = imported[0]
 
 bpy.ops.object.bake(
-    type="DIFFUSE",
-    pass_filter={"DIRECT", "INDIRECT"},
+    type="COMBINED",
+    # pass_filter={"DIRECT", "INDIRECT"},
     margin=MARGIN,
     use_clear=True,
 )

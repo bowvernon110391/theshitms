@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "vite",
     "bake": "npm run bake:static && npm run bake:dynamic",
-    "bake:static": "npm run bake:export && npm run bake:blender -- --samples=128 --atlas=1024 --margin=4 && npm run bake:import",
+    "bake:static": "npm run bake:export && npm run bake:blender -- --samples=32 --atlas=1024 --margin=4 && npm run bake:import",
     "bake:export": "node tools/export-scene.mjs",
     "bake:blender": "node tools/run-blender.mjs",
     "bake:import": "node tools/import-lightmap.mjs",

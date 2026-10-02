@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { decodeProbeVolume, ProbeVolume } from './lightprobe.js';
+import { decodeProbeVolume, ProbeVolume, DYNAMIC_SAMPLE } from './lightprobe.js';
 import { clamp } from './utils.js';
 
 /**
@@ -192,15 +192,33 @@ const _shHead = new Float32Array(27);
  * toward black rather than merely being the dimmer of the two samples.
  * Measured: every probe row at y = 0.12 reads `OUT` and evaluates to #000000.
  *
+ * The bounds are nudged *inward* by `INSET` before clamping, which matters
+ * because the volume's top layer now sits exactly on `DYNAMIC_SAMPLE.head` and
+ * a sample for a sim taller than that clamps straight onto the boundary.
+ * `gather()` rejects a point at `fy > ny - 1`, and at exactly `ny - 1` float
+ * rounding decides the outcome — so an exact-boundary clamp can evaluate to
+ * zero and turn the head of a tall object black. Shrinking the clamp range by a
+ * hair makes the sample land infinitesimally inside the last cell instead,
+ * where the weights are `[~0, 1]` and the result is the top layer, which is
+ * what was wanted in the first place.
+ *
  * @param {import('./lightprobe.js').ProbeVolume} volume
  * @param {THREE.Vector3} position  object origin, on the floor
  * @param {Iterable<object>} sets   uniform sets, one per material
  * @param {number} feet  sample height above the origin, before clamping
  * @param {number} head  sample height above the origin, before clamping
  */
-export function refreshDynamicLight(volume, position, sets, feet = 0.25, head = 1.7) {
-  const y0 = clamp(position.y + feet, volume.min.y, volume.max.y);
-  const y1 = clamp(position.y + head, volume.min.y, volume.max.y);
+export function refreshDynamicLight(
+  volume,
+  position,
+  sets,
+  feet = DYNAMIC_SAMPLE.feet,
+  head = DYNAMIC_SAMPLE.head
+) {
+  const INSET = 1e-4;
+
+  const y0 = clamp(position.y + feet, volume.min.y + INSET, volume.max.y - INSET);
+  const y1 = clamp(position.y + head, volume.min.y + INSET, volume.max.y - INSET);
 
   volume.sampleCoeffs(_probePoint.set(position.x, y0, position.z), _shFeet);
   volume.sampleCoeffs(_probePoint.set(position.x, y1, position.z), _shHead);

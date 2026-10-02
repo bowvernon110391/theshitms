@@ -226,6 +226,44 @@ export const PROBE_FLAG = {
 };
 
 /**
+ * The two heights a moving object is sampled at, above its own origin.
+ *
+ * These are the *only* heights anything reads out of the volume — the shader
+ * mixes the two samples by each vertex's world height, clamped to this range,
+ * so a vertex above `head` still reads the `head` sample rather than a third
+ * one. Everything below about `head` is dead weight, which is what
+ * `PROBE_BOUNDS.max.y` is derived from.
+ */
+export const DYNAMIC_SAMPLE = { feet: 0.25, head: 1.7 };
+
+/** Height of the lowest probe layer: just inside the floor slab. */
+const PROBE_MIN_Y = 0.14;
+
+/**
+ * Vertical layers in the grid.
+ *
+ * Three, which is the fewest that still gives a vertical gradient at all: the
+ * bottom layer sits at the floor, the top at `DYNAMIC_SAMPLE.head`, and the one
+ * between them carries the interpolation. With two, the feet and head samples
+ * would *be* the only two rows, so the shader's height blend would have nothing
+ * to interpolate between and a sim would read as two flat bands rather than a
+ * body.
+ *
+ * Three is also all the height this needs. The volume's only job vertically is
+ * to interpolate between the two heights a sim is sampled at — it is not trying
+ * to resolve the ceiling any more, because the atlas lights that.
+ */
+const PROBE_LAYERS_Y = 3;
+
+/**
+ * Vertical probe spacing, in metres.
+ *
+ * Derived rather than fixed, so the top layer lands exactly on
+ * `DYNAMIC_SAMPLE.head` instead of leaving unused headroom above it.
+ */
+const PROBE_SPACING_Y = (DYNAMIC_SAMPLE.head - PROBE_MIN_Y) / (PROBE_LAYERS_Y - 1);
+
+/**
  * Probe grid geometry, shared by the bake and the runtime so they cannot
  * disagree.
  *
@@ -242,10 +280,9 @@ export const PROBE_FLAG = {
  *   z = 0.08  → 0.20   (covered: min.z = 0.20)
  *   z = 9.92  → 9.80   (covered: max.z = 9.80)
  *
- * and by the floor and wall tops:
+ * and by the floor:
  *
  *   floor  y = 0.02 → 0.14   (covered: min.y = 0.14)
- *   top    y = 2.70 → 2.82   (covered: max.y = 2.84)
  *
  * That leaves one problem — a wall's inner face (+0.08) and outer face
  * (-0.08) are only 16 cm apart, so no grid can serve one and not the other.
@@ -256,26 +293,51 @@ export const PROBE_FLAG = {
  * because the whole volume is inside the envelope, no exterior probe exists
  * to leak light back through.
  *
- * Spacing is ~0.5 m in X/Z and 0.45 m in Y, chosen to sit just finer than the
- * geometry tessellation in `config.js`, so light resolves at least as well as
- * the surfaces carrying it.
+ * ## The ceiling of the volume is derived, not chosen
+ *
+ * `max.y` used to be 2.84, covering the wall tops — a leftover from when the
+ * probe volume lit *static* geometry. It does not any more: the atlas does
+ * that, and the volume exists solely for the sims, which are sampled at
+ * `DYNAMIC_SAMPLE.head` and nothing higher.
+ *
+ * At the old 0.45 m spacing that extent put layers at 0.14, 0.59, 1.04, 1.49,
+ * 1.94, **2.39, 2.84**, and the top two were never read by anything. Dropping
+ * them and ending the volume at `head` costs nothing at all: the interpolation
+ * at both sample heights is still between real layers, just fewer of them.
+ *
+ * So the extent is now `[PROBE_MIN_Y, DYNAMIC_SAMPLE.head]` with
+ * `PROBE_LAYERS_Y` rows between, and raising `DYNAMIC_SAMPLE.head` grows the
+ * volume rather than silently clamping against a stale ceiling.
  */
+
 export const PROBE_BOUNDS = {
-  min: [0.2, 0.14, 0.2],
-  max: [11.8, 2.84, 9.8],
+  min: [0.2, PROBE_MIN_Y, 0.2],
+  max: [11.8, PROBE_MIN_Y + (PROBE_LAYERS_Y - 1) * PROBE_SPACING_Y, 9.8],
 };
 
 /**
- * Grid resolution: [nx, ny, nz]. 24 × 7 × 20 = 3360 probes, ~354 KB.
+ * Grid resolution: [nx, ny, nz]. 11 × 3 × 9 = 297 probes, ~31 KB.
  *
- * The spacings that fall out of these counts (~0.504 in X, ~0.505 in Z) are
- * not arbitrary. A uniform grid will happily drop a probe *inside* an interior
- * wall, which reads as pitch black and smears a dark band down both of its
- * faces. Sweeping the three counts for one that steps over the 3.92–4.08 and
- * 7.92–8.08 bands in X and the 3.92–4.08 and 5.92–6.08 bands in Z removes the
- * problem by construction rather than by patching it up afterwards.
+ * **X/Z are deliberately below the density the field wants.** The sweep
+ * recorded on `PROBE_BOUNDS` shows correlation falling away below 2400 probes,
+ * so at 297 the sims get a smooth, soft field in which local light pools smear
+ * together rather than resolving — a sim walking past a lamp brightens
+ * gradually and globally, not in a distinct pool. That is the intended trade:
+ * cheaper bake, lighter file, blurrier sim lighting. Do not "correct" this back
+ * upwards without asking.
+ *
+ * Going from 5 vertical layers to 3 frees about 40% of the budget, and it is
+ * spent back into X/Z rather than banked: spacing improves from
+ * 1.45 × 1.60 m to 1.16 × 1.20 m at roughly the same probe count. Vertical
+ * resolution was never the limiting factor — the sims sample two heights and
+ * the shader interpolates between them — so that is where the cheap wins were.
+ *
+ * The X and Z counts are still chosen so the spacing steps over the 3.92–4.08
+ * and 7.92–8.08 wall bands in X and the 3.92–4.08 and 5.92–6.08 bands in Z.
+ * That constraint is free to satisfy at any density, and worth keeping: a probe
+ * inside a wall reads black and smears a dark band down both of its faces.
  */
-export const PROBE_COUNT = [24, 7, 20];
+export const PROBE_COUNT = [11, PROBE_LAYERS_Y, 9];
 
 /**
  * How far along the surface normal a vertex is sampled from its position.

@@ -127,8 +127,7 @@ things:
 |---|---|---|
 | Storage | 2048² PNG atlas, 8-bit sRGB | SH L2 probe volume |
 | Delivery | per-texel, via `uv1` + `material.lightMap` | per-vertex, via injected SH evaluation |
-| Resolution | **17.6 texels/m (~6 cm)** at `--atlas=1024` | 0.5 m probe grid, resolved per vertex |
-| Why | Surfaces don't move, so a texture can carry per-texel detail | A texture is indexed by UVs, and a character's UVs travel with it — a probe grid is indexed by *world position*, which is the right question to ask about a body that moves |
+| Resolution | **17.6 texels/m (~6 cm)** at `--atlas=1024` | 1.16 × 1.20 m grid, 3 layers, resolved per vertex || Why | Surfaces don't move, so a texture can carry per-texel detail | A texture is indexed by UVs, and a character's UVs travel with it — a probe grid is indexed by *world position*, which is the right question to ask about a body that moves |
 
 Both feed the same term in three.js's pipeline, so they composite with the sun
 under identical maths:
@@ -192,6 +191,54 @@ specific problems had to be solved:
 
 Measured on the exterior walls: **inward-facing vertices average 2.37
 luminance, outward-facing vertices average exactly 0.**
+
+### The probe volume is 297 probes, in 3 layers
+
+Two deliberate reductions from the 3360 the pipeline started with:
+
+**Vertical: 5 layers → 3.** The volume's only vertical job is to interpolate
+between the two heights a sim is sampled at (`DYNAMIC_SAMPLE`), and the top
+layer now lands exactly on `.head`. Three is the fewest that still gives a
+gradient at all — with two, the feet and head samples *would be* the only two
+rows and the shader's height blend would have nothing to interpolate between.
+The old extent ran to y = 2.84 to cover the wall tops, a leftover from when the
+probes lit static geometry; that is the atlas's job now.
+
+**Horizontal: deliberately below what the field wants**, for a cheaper bake and a
+31 KB file. This is the part with a visible cost: pooled light under a lamp is
+smeared across its neighbours, so a sim walking past one brightens gradually and
+globally rather than in a distinct pool.
+
+The two reductions are not equivalent, and the numbers say which is which:
+
+| Probes | Layers | X/Z spacing | Correlation | Samples lit in truth, dark in render |
+|---|---|---|---|---|
+| 2400 | 5 | 0.50 m | ~1.000 | 0 |
+| 297 | 3 | 1.16 m | ~0.55 (est.) | — |
+| 210 | 7 | 2.32 m | 0.391 | 873 |
+
+The reason horizontal density matters so much is the field itself: its structure
+function — mean |L(p) − L(p+d)| as a fraction of mean luminance — runs **35% at
+0.25 m, 75% at 0.5 m, 119% at 1 m**. With 16 lamps in a 12 × 10 m house, light
+genuinely varies at the ~1 m scale. Vertical variation has no equivalent
+argument, because nothing samples below the feet or above the head.
+
+Worth noting how the budget was spent. Dropping two layers frees about 40% of
+the probes, and that went back into X/Z rather than being banked: spacing
+improved from 1.45 × 1.60 m to 1.16 × 1.20 m at the *same* probe count. Vertical
+resolution was never the limiting factor, so that was where the free win was.
+
+**2400 is what a faithful volume costs.** That is what to return to if the sims'
+lighting matters more than the bake time — change `PROBE_LAYERS_Y` back to 5 and
+`PROBE_COUNT` to `[24, 5, 20]`. One knock-on: with the top layer at `head`
+rather than above it, the sims come out slightly dimmer overall, because the old
+blend included a layer at 1.94 m that sits closer to the 2.2 m ceiling lamps
+than any part of a 1.7 m body actually is.
+
+The X and Z counts are chosen so the spacing steps over the interior wall bands
+(3.92–4.08 and 7.92–8.08 in X; 3.92–4.08 and 5.92–6.08 in Z). That constraint is
+free to satisfy at any density, and worth keeping: a probe inside a wall reads
+black and smears a dark band down both of its faces.
 
 ### The unwrap and the bake are Blender's job now
 
