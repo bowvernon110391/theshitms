@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { MAT, LAMP_MATERIAL } from './materials.js';
-import { box, boxC, cyl, sph, plane, group } from './utils.js';
+import { box, boxC, cyl, sph, plane, group, randFor } from './utils.js';
 
 /**
  * The yard: boundary fence, front path, back deck, pool, planting and a
@@ -180,29 +180,49 @@ function buildPool() {
   const cx = (px0 + px1) / 2;
   const cz = (pz0 + pz1) / 2;
 
-  // Paved surround, then a raised stone rim built as a frame so the basin
-  // is genuinely open in the middle.
-  g.add(box(w + 1.6, 0.06, d + 1.6, MAT.path, [cx - (w + 1.6) / 2, 0, cz - (d + 1.6) / 2]));
-
+  // `box()` anchors Y by its BASE but X/Z by its CENTRE, so every piece below
+  // is placed on (cx, cz) and sized outward. An earlier version subtracted half
+  // an extent from X/Z as well — treating the position as a min-corner — which
+  // shifted the surround, basin floor and three of the four rim pieces 2–2.8 m
+  // toward -X while the water stayed put, leaving the frame off its own basin.
   const rimH = 0.2;
   const rimT = 0.34;
-  g.add(box(w + rimT * 2, rimH, rimT, MAT.stone, [cx - (w + rimT * 2) / 2, 0.06, cz - d / 2 - rimT]));
-  g.add(box(w + rimT * 2, rimH, rimT, MAT.stone, [cx - (w + rimT * 2) / 2, 0.06, cz + d / 2]));
-  g.add(box(rimT, rimH, d, MAT.stone, [cx - w / 2 - rimT, 0.06, cz - d / 2]));
-  g.add(box(rimT, rimH, d, MAT.stone, [cx + w / 2, 0.06, cz - d / 2]));
+  const innerW = w + rimT * 2; // rim outer footprint, X
+  const innerD = d + rimT * 2; // rim outer footprint, Z
+  const rimBase = 0.06; // rim sits on the paving slab
+  const rimTop = rimBase + rimH;
 
-  // Basin floor and water, sitting below the rim.
-  g.add(box(w, 0.08, d, MAT.tileDark, [cx - w / 2, 0.06, cz - d / 2]));
-  const water = plane(w - 0.02, d - 0.02, MAT.water, [cx, 0.14, cz]);
+  // Paved surround, then a raised stone rim built as a frame so the basin
+  // is genuinely open in the middle.
+  g.add(box(w + 1.6, 0.06, d + 1.6, MAT.path, [cx, 0, cz]));
+
+  g.add(box(innerW, rimH, rimT, MAT.stone, [cx, rimBase, cz - d / 2 - rimT / 2]));
+  g.add(box(innerW, rimH, rimT, MAT.stone, [cx, rimBase, cz + d / 2 + rimT / 2]));
+  g.add(box(rimT, rimH, d, MAT.stone, [cx - w / 2 - rimT / 2, rimBase, cz]));
+  g.add(box(rimT, rimH, d, MAT.stone, [cx + w / 2 + rimT / 2, rimBase, cz]));
+
+  // Basin, then the water surface.
+  //
+  // There is no liner and no modelled basin floor. A liner exists to stop the
+  // surrounding GROUND planes (`lawn` at y=-0.01 and `patch` at 0.005, neither
+  // of which has a hole cut for the pool) showing through the basin walls. But
+  // the water is 88% opaque, so it hides them by itself — and a liner has to
+  // rise past the waterline to do the job, which is what put a pale band above
+  // the water all the way round. Removing it deletes five boxes, the grey edge
+  // and the `poolLiner` material, at no visible cost.
+  //
+  // The water deliberately OVERSHOOTS the basin edges and runs under the coping
+  // (`rimT` = 0.34 m thick). Sizing it to the basin exactly left a hairline of
+  // surrounding ground visible round the inside of the rim; the coping is a
+  // solid box 20 cm tall sitting well above the water, so it hides the overlap
+  // rather than fighting it for depth.
+  const waterY = rimBase + 0.02; // above `patch` (0.005), just under rimTop
+  const waterOverlap = 0.12; // each side, well under the 0.34 m rim
+
+  const water = plane(w + waterOverlap * 2, d + waterOverlap * 2, MAT.water, [cx, waterY, cz]);
   water.userData.noMerge = true;
   water.name = 'poolWater';
   g.add(water);
-
-  // Ladder on the near edge.
-  for (const s of [-1, 1]) {
-    g.add(cyl(0.03, 0.03, 0.75, MAT.chrome, [cx + s * 0.22, 0.2, pz1 - 0.06], 8));
-    addRot(g, cyl(0.025, 0.025, 0.5, MAT.chrome, [cx + s * 0.22, 0.42, pz1 + 0.22], 8), 0.6, 0, 0);
-  }
 
   return g;
 }
@@ -270,7 +290,11 @@ function buildPlanting() {
   for (const [x, z, variant, trunk] of trees) {
     const t = buildTree(variant, trunk);
     t.position.set(x, 0, z);
-    t.rotation.y = x * 0.7 + z * 0.3;
+    // Yaw keyed on the tree's own position, so each one faces a different way
+    // but the whole layout stays reproducible across reloads and re-bakes. The
+    // old `x * 0.7 + z * 0.3` was a fixed linear ramp in the coordinates, which
+    // is why evenly-spaced trees read as uniform.
+    t.rotation.y = randFor(`tree:${x},${z}`)() * Math.PI * 2;
     g.add(t);
   }
 
@@ -278,12 +302,14 @@ function buildPlanting() {
   for (let x = -0.6; x < 12.6; x += 1.35) {
     const s = buildShrub(0.34 + ((x * 7) % 3) * 0.05);
     s.position.set(x, 0, -0.75);
+    s.rotation.y = randFor(`shrub-front:${x.toFixed(2)}`)() * Math.PI * 2;
     g.add(s);
   }
   // A few along the back wall too, avoiding the patio doors and pool.
   for (const x of [-1.4, 4.9, 5.6, 11.8]) {
     const s = buildShrub(0.4);
     s.position.set(x, 0, 10.85);
+    s.rotation.y = randFor(`shrub-back:${x}`)() * Math.PI * 2;
     g.add(s);
   }
 
@@ -291,6 +317,7 @@ function buildPlanting() {
   for (const [seed, x, z] of [[0, 0.55, -2.6], [1, 3.3, -2.6], [2, 0.4, -4.6], [3, 12.2, 12.0]]) {
     const bed = buildFlowers(seed);
     bed.position.set(x, 0, z);
+    bed.rotation.y = randFor(`flowerbed:${x},${z}`)() * Math.PI * 2;
     g.add(bed);
   }
 
@@ -299,6 +326,7 @@ function buildPlanting() {
     const h = buildShrub(0.5);
     h.position.set(13.0, 0, 8.0 + i * 1.1);
     h.scale.set(1, 0.9, 1);
+    h.rotation.y = randFor(`hedge:${i}`)() * Math.PI * 2;
     g.add(h);
   }
 

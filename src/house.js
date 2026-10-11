@@ -8,6 +8,48 @@ import { lightColor } from './lightcolors.js';
 const H = HOUSE.wallHeight;
 const T = HOUSE.wallThickness;
 
+/**
+ * Finished floor level above the structural slab's top face.
+ *
+ * The slab's top and the room floor planes both used to land near y = 0 — 5 mm
+ * apart, which is inside one depth-buffer step at normal viewing distance, so
+ * they z-fought along every floor edge. The floor planes and the baseboards
+ * that stand on them are lifted by this instead.
+ */
+export const FLOOR_OFFSET = 0.03;
+/**
+ * How far the plinth's TOP face sits BELOW the structural datum (y = 0).
+ *
+ * Both the plinth top and the slab top used to land on exactly y = 0, i.e. the
+ * same world plane, and they overlap over the whole footprint (the plinth is
+ * `width + 0.36`, the slab `width + 0.5`), so the two large horizontal faces
+ * never resolved and shimmered along the whole building perimeter. The wall
+ * bottoms also landed on that same plane. Dropping the plinth's top clearly
+ * below the (sunk) slab top puts each of the three surfaces on its own depth.
+ *
+ * MUST be strictly greater than `SLAB_SINK`, or the plinth top collides with
+ * the slab top again from below.
+ */
+const PLINTH_OFFSET = 0.05;
+
+/** How far the plinth is inset from the slab's edge, per side. */
+const PLINTH_INSET = 0.04;
+
+/** How far the lawn sits below the plinth's bottom face, to break their coplanarity. */
+const GROUND_DROP = 0.015;
+
+/** Height of the frame head band above an opening's top edge. */
+const HEAD_H = 0.09;
+
+/** How far the roof is sunk into the wall tops, to clear their coplanar faces. */
+const ROOF_SINK = 0.02;
+
+/**
+ * How far the structural slab's top face sits BELOW the structural datum
+ * (y = 0), so it no longer shares a plane with every wall's bottom face.
+ */
+const SLAB_SINK = 0.02;
+
 /* ────────────────────────────────────────────────────────────────
    Wall runs
    ──────────────────────────────────────────────────────────────── */
@@ -51,22 +93,40 @@ function buildWallRun(spec) {
   let cursor = spec.from;
   for (const o of openings) {
     const preset = OPENING[o.kind] ?? OPENING.door;
+    const isDoor = preset.bottom === 0;
+    // The sill occupies the 7 cm band below a window's bottom edge. The wall
+    // filler must stop at the sill's BOTTOM, not at `preset.bottom`, or the two
+    // boxes overlap and their top faces coincide exactly at `preset.bottom` —
+    // two coplanar faces, which z-fight. That is what shimmered along every
+    // window sill (and, the same way, where the baseboard meets the wall).
+    const sillT = isDoor ? 0 : 0.07;
     if (o.from > cursor) slab(cursor, o.from, 0, H);
-    if (preset.bottom > 0) slab(o.from, o.to, 0, preset.bottom);
-    if (preset.top < H) slab(o.from, o.to, preset.top, H);
+    if (preset.bottom > 0) slab(o.from, o.to, 0, preset.bottom - sillT);
+    // Filler above the opening. It starts slightly ABOVE the head's top, so the
+    // head's top face lies just below the filler's bottom face rather than on
+    // it. Running the filler from the head's top exactly (`preset.top + HEAD_H`)
+    // is what a first pass did — and it simply relocated the coincidence: the
+    // filler's bottom face then landed on the head's top face. A real overlap
+    // (head poking up into the filler) has no shared plane at all.
+    if (preset.top < H) slab(o.from, o.to, preset.top + HEAD_H + 0.004, H);
     cursor = o.to;
   }
   if (cursor < spec.to) slab(cursor, spec.to, 0, H);
 
-  // Baseboard skirting, broken only where a door reaches the floor.
+  // Baseboard skirting, broken only where a door reaches the floor. It stands
+  // ON the finished floor (`FLOOR_OFFSET`), not on the structural slab: sitting
+  // it at y = 0 put its bottom face exactly on the wall slab's bottom face and
+  // the slab top at once — three coincident planes, and a z-fight along the
+  // skirting line.
   if (!spec.exterior) {
+    const baseTop = FLOOR_OFFSET + 0.11;
     let baseCursor = spec.from;
     const floorBreaks = openings.filter((o) => (OPENING[o.kind] ?? OPENING.door).bottom === 0);
     for (const o of floorBreaks) {
-      if (o.from > baseCursor) slab(baseCursor, o.from, 0, 0.11, MAT.floorTrim, 0.035);
+      if (o.from > baseCursor) slab(baseCursor, o.from, FLOOR_OFFSET, baseTop, MAT.floorTrim, 0.035);
       baseCursor = o.to;
     }
-    if (baseCursor < spec.to) slab(baseCursor, spec.to, 0, 0.11, MAT.floorTrim, 0.035);
+    if (baseCursor < spec.to) slab(baseCursor, spec.to, FLOOR_OFFSET, baseTop, MAT.floorTrim, 0.035);
   }
 
   // Decorate the openings.
@@ -109,10 +169,24 @@ function addFrame(parent, spec, o, preset, isDoor) {
     return m;
   };
 
-  along(o.from - jamb, o.from, preset.bottom, preset.top); // left jamb
-  along(o.to, o.to + jamb, preset.bottom, preset.top); // right jamb
-  along(o.from - jamb, o.to + jamb, preset.top, preset.top + 0.09); // head
-  if (!isDoor) along(o.from - jamb, o.to + jamb, preset.bottom - 0.07, preset.bottom); // sill
+  // Jambs stop 5 mm short of `preset.top` and the head begins exactly there:
+  // running the jambs all the way to `preset.top` made their TOP faces coincide
+  // with the head's BOTTOM face (same y, same z, overlapping x over each jamb's
+  // 7.5 cm) — coplanar faces, which z-fight along the entire head. This mirrors
+  // the sill fix below.
+  along(o.from - jamb, o.from, preset.bottom, preset.top - 0.005); // left jamb
+  along(o.to, o.to + jamb, preset.bottom, preset.top - 0.005); // right jamb
+  along(o.from - jamb, o.to + jamb, preset.top, preset.top + HEAD_H); // head
+  if (!isDoor) {
+    // The sill tucks under the jambs and fills the 7 cm band below the opening.
+    // It stops 5 mm short of `preset.bottom` at the top, and starts 5 mm BELOW
+    // the wall filler's top edge, so it shares no plane with either: running it
+    // to exactly `preset.bottom` put its top face on each jamb's bottom face,
+    // and running its bottom to exactly the filler top put the sill's bottom
+    // face on the filler's top face. Either way: coplanar faces, z-fighting
+    // along the whole sill line. Now it overlaps both by a hair instead.
+    along(o.from - jamb, o.to + jamb, preset.bottom - 0.07 - 0.005, preset.bottom - 0.005);
+  }
 }
 
 /** Glass plus a warm glow card for evening. */
@@ -237,11 +311,16 @@ function buildFloors() {
   const g = new THREE.Group();
   g.name = 'floors';
 
-  // Structural slab under everything.
+  // Structural slab under everything. Its TOP face lands at `-SLAB_SINK` below
+  // the structural datum (y = 0 local = `foundationLift` world), NOT on it:
+  // every exterior and interior wall bottom sits on y = 0, so a slab top at
+  // exactly y = 0 was coplanar with all of them and shimmered wherever a wall
+  // met the base. Sinking the slab by this much hands the wall bottoms their own
+  // depth. The finished floor is lifted clear by `FLOOR_OFFSET` regardless.
   const slab = box(
     HOUSE.width + 0.5, HOUSE.floorThickness, HOUSE.depth + 0.5,
     MAT.concrete,
-    [HOUSE.width / 2, -HOUSE.floorThickness, HOUSE.depth / 2]
+    [HOUSE.width / 2, -HOUSE.floorThickness - SLAB_SINK, HOUSE.depth / 2]
   );
   slab.userData.noMerge = true;
   g.add(slab);
@@ -258,9 +337,13 @@ function buildFloors() {
     const d = room.z1 - room.z0;
     // Tessellated: the floor is the surface where a lamp's falloff is most
     // visible, and a single quad could not show it at all.
+    //
+    // Lifted clear of the slab's top face by FLOOR_OFFSET. At the old 5 mm the
+    // floor plane and the slab top fought in the depth buffer; `FLOOR_OFFSET`
+    // also fixes the finished floor level, which the baseboards sit on.
     const mesh = plane(w - 0.02, d - 0.02, floorMat[room.floor] ?? MAT.oak, [
       (room.x0 + room.x1) / 2,
-      0.005,
+      FLOOR_OFFSET,
       (room.z0 + room.z1) / 2,
     ], 0, true);
     mesh.receiveShadow = true;
@@ -270,7 +353,16 @@ function buildFloors() {
   // A shadow-catcher outside so the house reads as grounded. Too large to
   // tessellate, and deliberately excluded from the bake — sunlight and the
   // lamp post light it, interior lamps must not.
-  const ground = plane(120, 120, MAT.grass, [HOUSE.width / 2, -HOUSE.foundationLift, HOUSE.depth / 2]);
+  //
+  // Sits just BELOW the plinth's bottom face (which is at world y = 0) rather
+  // than exactly on it: two coplanar horizontal surfaces at y = 0 z-fought along
+  // the whole plinth perimeter, which read as a crawling edge where the base
+  // meets the lawn.
+  const ground = plane(120, 120, MAT.grass, [
+    HOUSE.width / 2,
+    -HOUSE.foundationLift - GROUND_DROP,
+    HOUSE.depth / 2,
+  ]);
   ground.userData.noMerge = true;
   ground.userData.noBake = true;
   ground.name = 'ground';
@@ -305,7 +397,12 @@ function buildRoof() {
   const roof = new THREE.Mesh(geo, MAT.roof);
   roof.castShadow = true;
   roof.receiveShadow = true;
-  roof.position.set(HOUSE.width / 2, H, HOUSE.depth / 2);
+  // Sunk by `ROOF_SINK` into the wall tops. At exactly H the roof's flat bottom
+  // face was coplanar with the top face of EVERY wall (same y, overlapping over
+  // the whole eaves line — up to 0.8 m² per run), which z-fought along the
+  // roof/wall junction. Overlapping the roof into the walls by a couple of
+  // centimetres removes the shared plane entirely; the eaves hide the overlap.
+  roof.position.set(HOUSE.width / 2, H - ROOF_SINK, HOUSE.depth / 2);
   // Above every interior lamp, so a bake would give it nothing but would
   // still cost vertices.
   roof.userData.noBake = true;
@@ -321,11 +418,14 @@ function buildRoof() {
     g.add(fascia);
   }
 
-  // Chimney.
+  // Chimney. The stack boxes are OVERLAPPED by a few centimetres rather than
+  // butted: butting them put each upper box's bottom face exactly on the box
+  // below's top face (coplanar, same footprint) — the same z-fight class as the
+  // base. A small overlap means no two faces share a plane.
   const chimney = group('chimney', [
     box(0.9, 0.9, 0.9, MAT.bricks, [3.4, H + 0.4, 7.4]),
-    box(1.06, 0.14, 1.06, MAT.stone, [3.4, H + 1.3, 7.4]),
-    box(0.42, 0.22, 0.42, MAT.black, [3.4, H + 1.44, 7.4]),
+    box(1.06, 0.16, 1.06, MAT.stone, [3.4, H + 0.4 + 0.9 - 0.02, 7.4]),
+    box(0.42, 0.22, 0.42, MAT.black, [3.4, H + 0.4 + 0.9 + 0.16 - 0.03, 7.4]),
   ]);
   g.add(chimney);
 
@@ -469,7 +569,9 @@ export function buildHouse({ labels: withLabels = true } = {}) {
   // would sit half a footprint off — protruding on the -X/-Z side and absent
   // under the rest of the house.
   const plinth = box(
-    HOUSE.width + 0.36, HOUSE.foundationLift, HOUSE.depth + 0.36,
+    HOUSE.width + 0.36 - PLINTH_INSET * 2,
+    HOUSE.foundationLift - PLINTH_OFFSET,
+    HOUSE.depth + 0.36 - PLINTH_INSET * 2,
     MAT.foundation,
     [HOUSE.width / 2, -HOUSE.foundationLift, HOUSE.depth / 2]
   );

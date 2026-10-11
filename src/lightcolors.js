@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { hashSeed, mulberry32 } from './utils.js';
 
 /**
  * Deterministic "random" colours for the interior lights.
@@ -23,43 +24,6 @@ import * as THREE from 'three';
  * the constraint directly, so "never blue" is a property of the code rather
  * than of a palette someone has to keep remembering not to violate.
  */
-
-/**
- * FNV-1a, 32-bit.
- *
- * Any stable string hash would do; this one is short, has good avalanche and
- * needs no state. It exists so a light's colour is a pure function of its name,
- * which means reordering the fixtures cannot secretly recolour the house.
- */
-function hashSeed(text) {
-  let h = 0x811c9dc5;
-
-  for (let i = 0; i < text.length; i++) {
-    h ^= text.charCodeAt(i);
-    h = Math.imul(h, 0x01000193);
-  }
-
-  return h >>> 0;
-}
-
-/**
- * mulberry32 — a small, fast, well-distributed PRNG.
- *
- * `Math.sin(seed)` style hashes are the usual shortcut here and are worth
- * avoiding: they correlate for nearby seeds, which would show up as adjacent
- * lights getting near-identical hues.
- */
-function mulberry32(seed) {
-  let a = seed >>> 0;
-
-  return function next() {
-    a = (a + 0x6d2b79f5) >>> 0;
-    let t = a;
-    t = Math.imul(t ^ (t >>> 15), t | 1);
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
 
 /**
  * A colour drawn from `range`, determined by `name` and `salt`.

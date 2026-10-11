@@ -305,9 +305,16 @@ export function makeCounterRun({ len = 2.0, facing = 1, sink = null, stove = nul
   const h = 0.9;
   const d = 0.62;
 
-  g.add(box(len, h - 0.1, d, MAT.woodWhite, [0, 0.1, 0]));
+  // Carcass base starts 5 mm INTO the plinth below it (`box` top = 0.1) rather
+  // than resting on the 0.1 plane the plinth and the toe kick also reach — three
+  // surfaces on one plane inside the cabinet.
+  g.add(box(len, h - 0.1 + 0.005, d, MAT.woodWhite, [0, 0.095, 0]));
   g.add(box(len, 0.1, d - 0.12, MAT.charcoal, [0, 0, 0]));
-  g.add(box(len + 0.04, 0.06, d + 0.03, MAT.counterTop, [0, h, 0]));
+  // Countertop rests 2 mm INTO the cabinet carcass, whose top is at exactly `h`
+  // (`0.1 + (h-0.1)`). Butting them put the counter's bottom face on the carcass
+  // top face — coplanar, and visible as a crawling line along the 4 cm overhang
+  // edge where the counter sticks out past the cabinet.
+  g.add(box(len + 0.04, 0.06, d + 0.03, MAT.counterTop, [0, h - 0.002, 0]));
 
   // Door fronts with handles.
   const doors = Math.max(2, Math.round(len / 0.6));
@@ -322,13 +329,21 @@ export function makeCounterRun({ len = 2.0, facing = 1, sink = null, stove = nul
     );
   }
 
-  // Toe kick shadow line
-  g.add(box(len - 0.04, 0.1, 0.04, MAT.black, [0, 0, facing * (d / 2 - 0.02)]));
+  // Toe kick shadow line. Stops 5 mm below the carcass/plinth plane at 0.1 so it
+  // does not add a third face to that plane.
+  g.add(box(len - 0.04, 0.095, 0.04, MAT.black, [0, 0, facing * (d / 2 - 0.02)]));
 
   if (sink) {
     const sx = sink * (len / 2) * 0.72;
-    g.add(box(0.62, 0.08, 0.44, MAT.chrome, [sx, h - 0.02, 0]));
-    g.add(box(0.52, 0.16, 0.34, MAT.steelDark, [sx, h - 0.16, 0]));
+    // The rim's top face used to land exactly on the countertop's top face
+    // (`h - 0.02 + 0.08 == h + 0.06`), i.e. two coplanar horizontal faces over
+    // the whole rim — the sink flickered. Making the rim 3 mm taller lifts its
+    // top just PROUD of the counter, which is also how a real sink is set.
+    g.add(box(0.62, 0.083, 0.44, MAT.chrome, [sx, h - 0.02, 0]));
+    // Bowl top stops 5 mm below the countertop's underside (`h`), not flush with
+    // it — otherwise the bowl's top face and the counter's bottom face are
+    // coplanar. Hidden by the counter in practice, but still a shared plane.
+    g.add(box(0.52, 0.155, 0.34, MAT.steelDark, [sx, h - 0.16, 0]));
     const tap = cyl(0.018, 0.018, 0.28, MAT.chrome, [sx, h + 0.04, -0.2], 10);
     g.add(tap);
     const spout = boxC(0.02, 0.02, 0.16, MAT.chrome, [sx, h + 0.32, -0.12]);
@@ -337,10 +352,15 @@ export function makeCounterRun({ len = 2.0, facing = 1, sink = null, stove = nul
 
   if (cooktop) {
     const cx = stove * (len / 2) * 0.72;
-    g.add(box(0.58, 0.02, 0.5, MAT.black, [cx, h + 0.06, 0]));
+    // Hob top face at `h + 0.08`; the counter top is at `h + 0.058`, so the hob
+    // overlaps the counter and stands proud — no shared plane with it.
+    const HOB_TOP = h + 0.08;
+    g.add(box(0.58, 0.04, 0.5, MAT.black, [cx, HOB_TOP - 0.04, 0]));
     for (const ox of [-0.14, 0.14]) {
       for (const oz of [-0.13, 0.13]) {
-        g.add(cyl(0.075, 0.075, 0.012, MAT.steelDark, [cx + ox, h + 0.07, oz], 14));
+        // Burner base sunk 2 mm into the hob top, not resting on it — otherwise
+        // burner bottom and hob top are the same plane.
+        g.add(cyl(0.075, 0.075, 0.012, MAT.steelDark, [cx + ox, HOB_TOP - 0.002, oz], 14));
       }
     }
     // Oven front
@@ -613,17 +633,31 @@ export function makePlant({ h = 1.1, spread = 0.42 } = {}) {
   return g;
 }
 
+/**
+ * Rug base height above the room's finished floor plane.
+ *
+ * The furniture group is already lifted onto the finished floor by
+ * `FLOOR_OFFSET` (see world.js), so the rug only needs to clear the floor by a
+ * hair — enough to keep its bottom layer off the floor plane, which it shares a
+ * plane with at zero. The layered quads are spaced `RUG_LAYER` apart so each
+ * owns its own depth; 6 mm was inside one depth step and flickered.
+ */
+const RUG_BASE = 0.004;
+
+/** Gap between a rug's stacked layers. Must be well clear of one depth step. */
+const RUG_LAYER = 0.008;
+
 export function makeRug({ w = 2.4, d = 1.8, color = MAT.rugWarm, border = true } = {}) {
   const g = group('rug');
-  const base = plane(w, d, color, [0, 0.018, 0]);
+  const base = plane(w, d, color, [0, RUG_BASE, 0]);
   base.userData.noMerge = true;
   g.add(base);
   if (border) {
     const bmat = new THREE.MeshStandardMaterial({ color: 0xf0e6d4, roughness: 1 });
-    const b = plane(w - 0.22, d - 0.22, bmat, [0, 0.024, 0]);
+    const b = plane(w - 0.22, d - 0.22, bmat, [0, RUG_BASE + RUG_LAYER, 0]);
     b.userData.noMerge = true;
     g.add(b);
-    const inner = plane(w - 0.42, d - 0.42, color, [0, 0.03, 0]);
+    const inner = plane(w - 0.42, d - 0.42, color, [0, RUG_BASE + RUG_LAYER * 2, 0]);
     inner.userData.noMerge = true;
     g.add(inner);
   }
@@ -645,7 +679,11 @@ export function makeCoatRack() {
   const g = group('coatRack');
   const h = 1.75;
   g.add(cyl(0.16, 0.19, 0.03, MAT.woodDark, [0, 0, 0], 12));
-  g.add(cyl(0.025, 0.03, h, MAT.woodMid, [0, 0.03, 0], 8));
+  // The pole starts 3 mm INSIDE the base disc (`cyl` base at 0, 0.03 tall). Set
+  // at exactly 0.03 the pole's bottom face landed on the disc's top face —
+  // coplanar concentric circles, which flickered around the base. Sinking it
+  // gives the two a real overlap.
+  g.add(cyl(0.025, 0.03, h, MAT.woodMid, [0, 0.027, 0], 8));
   for (let i = 0; i < 4; i++) {
     const a = (i / 4) * Math.PI * 2;
     const peg = cyl(0.016, 0.016, 0.16, MAT.woodMid, [Math.cos(a) * 0.08, h - 0.16, Math.sin(a) * 0.08], 6);

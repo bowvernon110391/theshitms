@@ -96,12 +96,16 @@ export const MAT = {
   flowerYellow: std(0xdcbb52, { roughness: 0.8 }),
   fence: std(0xe9e4d8, { roughness: 0.8 }),
   path: std(0xc4b9a6, { roughness: 0.95 }),
+  // No pool liner material: the basin is hidden by the water's own opacity, and
+  // lining it produced a pale band above the waterline round the whole pool.
   water: new THREE.MeshStandardMaterial({
-    color: 0x2f9fd6,
-    roughness: 0.08,
-    metalness: 0.12,
+    color: 0x1f6f9c,
+    roughness: 0.05,
+    metalness: 0.0,
     transparent: true,
-    opacity: 0.78,
+    // `opacity` is the OPAQUE fraction, not the transparent one: 0.88 here means
+    // ~12% see-through. Setting this to 0.1 would make the pool near-invisible.
+    opacity: 0.88,
   }),
 
   // ── People ───────────────────────────────────────────────────

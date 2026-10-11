@@ -4,6 +4,13 @@ An interactive 3D house you can look inside, Sims-style. Walls drop away as you
 orbit, the roof lifts off, and the whole scene runs through a full day/night
 cycle with the interior lights coming on at dusk.
 
+[![Cutaway view at noon — the walls between the camera and the rooms fade to a
+ghost, so all seven rooms stay readable from one orbit position](screenshots/01-noon-cutaway.png)](screenshots/01-noon-cutaway.png)
+
+*Cutaway view, noon. Each wall run decides for itself whether to ghost, based on
+which side of the focus point it sits on — so the walls standing between you and
+the room you're looking at drop out, and the ones behind it stay solid.*
+
 ```bash
 npm install
 npm run bake     # offline light bake -> public/lightmap.png  (~9 min, once)
@@ -36,6 +43,28 @@ the slider, hit a preset, or let it run.
 | Cutaway | Walls between the camera and the interior fade to a ghost, so you always see in |
 | Walls Up | Everything solid, roof on — the house as a passer-by sees it |
 | Floor Plan | Wall materials are clipped at 0.55 m and the camera goes top-down |
+
+**Walls Up, at dusk.** The same house as a passer-by sees it — roof on, nothing
+ghosted, and the outdoor lamp post already lit. Sun, sky, fog and that lamp are
+all real-time; only the interior lamps are baked, which is why the sun can keep
+moving without invalidating the bake.
+
+[![Walls-up exterior at dusk: solid walls and roof, warm sun low on the horizon,
+the outdoor lamp post lit while the interior is still dark](screenshots/02-dusk-exterior.png)](screenshots/02-dusk-exterior.png)
+
+**Floor Plan.** Not a hide-the-walls trick — the wall materials are sliced with a
+real clipping plane at 0.55 m, so wall stubs and door reveals stay visible from
+directly above.
+
+[![Top-down floor plan: walls clipped at 0.55 m, showing the twelve-by-ten-metre
+layout, furniture, room labels and the driveway and pool outside](screenshots/04-floor-plan.png)](screenshots/04-floor-plan.png)
+
+**Night, cutaway, flown to the bedroom.** With the sun gone, everything you can
+see is baked: the ceiling lamps and free-standing fixtures, resolved per-texel on
+the floors and walls and per-vertex on the sims.
+
+[![Night cutaway flown into the bedroom: warm pools from the ceiling lamps and a
+beside lamp, cool moonlight through the window, a sim standing on the floor](screenshots/03-night-bedroom.png)](screenshots/03-night-bedroom.png)
 
 ## Controls
 
@@ -452,6 +481,15 @@ questions:
 | 1 | **On surfaces** | Does the lighting *look* right? Reads the atlas back through each mesh's `uv1` and shows it flat. |
 | 2 | **Probe grid** | What is in the 3D volume that lights the sims? Spheres coloured by stored irradiance, optionally x-ray, sliced by Y, or filtered to only the repaired probes. |
 | 3 | **Atlas texture** | Is the *packing* sane? The real atlas image with chart outlines drawn over it — wasted space, chart shapes, density variation. |
+
+Views 1 and 2 together, with both enabled. The house is showing the atlas
+directly through `uv1` rather than the real materials, so the albedo is gone and
+anything the bake left unlit goes black — the magenta dining room is one lamp's
+own colour, not a decoration. The scattered dots are the 297 SH probes of view 2,
+drawn in place; the dark ones are probes that receive no light at all.
+
+[![Debug views: the lightmap shown raw on the surfaces through uv1, with the 297
+SH probes drawn over the house as coloured spheres](screenshots/05-debug-surfaces.png)](screenshots/05-debug-surfaces.png)
 
 Press `D` to toggle view 1. The atlas window (view 3) floats over the scene:
 **drag its header** to move it, **double-click the header** to re-dock it, and

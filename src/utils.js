@@ -6,6 +6,55 @@ import { segmentsFor } from './config.js';
 export const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 export const lerp = (a, b, t) => a + (b - a) * t;
 
+/* ── Deterministic randomness ─────────────────────────────────── */
+
+/**
+ * FNV-1a, 32-bit.
+ *
+ * Any stable string hash would do; this one is short, has good avalanche and
+ * needs no state. It exists so a scattered thing's appearance is a pure function
+ * of its name/position, which means reordering or adding items cannot silently
+ * reshuffle the ones already placed — the scene stays reproducible, and the
+ * bake matches what the runtime shows.
+ */
+export function hashSeed(text) {
+  let h = 0x811c9dc5;
+
+  for (let i = 0; i < text.length; i++) {
+    h ^= text.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+
+  return h >>> 0;
+}
+
+/**
+ * mulberry32 — a small, fast, well-distributed PRNG.
+ *
+ * `Math.sin(seed)` style hashes are the usual shortcut here and are worth
+ * avoiding: they correlate for nearby seeds, which would show up as adjacent
+ * items getting near-identical values.
+ */
+export function mulberry32(seed) {
+  let a = seed >>> 0;
+
+  return function next() {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/**
+ * A deterministic PRNG keyed on a name and salt, in the range [0, 1).
+ * Convenience wrapper so callers do not have to pair `mulberry32`/`hashSeed`.
+ */
+export function randFor(name, salt = 0) {
+  return mulberry32(hashSeed(`${salt}:${name}`));
+}
+
 /** Smooth Hermite interpolation. */
 export function smoothstep(edge0, edge1, x) {
   const t = clamp((x - edge0) / (edge1 - edge0), 0, 1);

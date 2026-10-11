@@ -1,9 +1,17 @@
 import * as THREE from 'three';
-import { buildHouse } from './house.js';
+import { buildHouse, FLOOR_OFFSET } from './house.js';
 import { buildFurnishings } from './furnish.js';
 import { buildYard } from './props.js';
 import { buildSims } from './sims.js';
 import { mergeByMaterial } from './utils.js';
+
+/**
+ * Extra clearance added on top of `FLOOR_OFFSET` when seating furniture on the
+ * finished floor. A few millimetres is inside one depth-buffer step at room
+ * scale, so a base flush with the floor plane still flickers; this lifts every
+ * furniture/sim root clear of it. Small enough to be invisible.
+ */
+const SEAT_CLEARANCE = 0.004;
 
 /**
  * Builds the whole world, independent of any renderer.
@@ -23,10 +31,15 @@ export function buildWorld({ sims = true, labels = true } = {}) {
   // Furniture lives in the house's local space so it inherits the foundation
   // lift, but it is static — merge it down to a handful of draw calls.
   //
-  // The free-standing lamps come back with it as light specs, because they are
-  // built there and their emitter heights are read off the fixtures themselves.
+  // Lifted by `FLOOR_OFFSET` to stand on the FINISHED floor, not the structural
+  // slab. Furniture is authored with its base at local y = 0, but the room floor
+  // plane is `FLOOR_OFFSET` above that — so without this everything sank 3 cm
+  // into the floor and any part reaching local 0.03 poked its top through the
+  // floor plane. That is what flickered at the base of the coat rack (and would
+  // at any other floor-standing piece).
   const furnishings = buildFurnishings();
   const furniture = mergeByMaterial(furnishings.group);
+  furniture.position.y += FLOOR_OFFSET + SEAT_CLEARANCE;
   house.group.add(furniture);
 
   const yard = buildYard();
@@ -38,6 +51,8 @@ export function buildWorld({ sims = true, labels = true } = {}) {
     const built = buildSims();
     simsGroup = built.group;
     simList = built.sims;
+    // Same finished-floor lift as the furniture: sims stand on the floor.
+    simsGroup.position.y += FLOOR_OFFSET + SEAT_CLEARANCE;
     house.group.add(simsGroup);
   }
 
